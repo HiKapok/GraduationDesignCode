@@ -3,8 +3,6 @@
 
 #include "common.h"
 
-#include <cassert>
-
 #include <QDebug>
 #include <QStringList>
 
@@ -67,7 +65,7 @@ bool KPicInfo::dataAttach(GDALDataset * dataset)
     {
         releaseInstance();
     }
-    qDebug()<<"dataset attach";
+    //qDebug()<<"dataset attach";
     return true;
 }
 
@@ -102,9 +100,13 @@ void KPicInfo::build()
     m_vMax = adfMinMax[1];
 
     char ** filelist =m_pDataset->GetFileList();
+    // just fetch the first one
     QString temp(*filelist);
-    const QStringList tempList = temp.split(".");
-    m_extName = tempList[tempList.length()-1];
+    m_fileName = temp;
+
+    m_fileNoExtName = temp.left(temp.lastIndexOf("."));
+    m_extName = temp.right(temp.length()-temp.lastIndexOf("."));
+    CSLDestroy (filelist);
 
     m_BandName.clear();
 

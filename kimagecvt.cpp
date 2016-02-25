@@ -9,7 +9,6 @@
 
 KImageCvt::KImageCvt()
 {
-
 }
 
 GDALDataset * KImageCvt::normalize(GDALDataset *piDataset, GDALDataset *poDataset, float dMin, float dMax, QString name)
@@ -36,7 +35,7 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();
     pafData = (float *) CPLMalloc(sizeof(float)*nXSize*nYSize);
-    GDALRasterBand * piBand = 0;
+    GDALRasterBand * piBand = NULL;
     bool beSame = K_CheckDataSetEqu(piDataset,poDataset);
 
     if(!beSame){
@@ -53,7 +52,7 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "addWeighted:Driver %s supports Create() method.\n", pszFormat );
+            qDebug( "addWeighted:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
@@ -66,7 +65,6 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
                                      ,bandNum,KPicInfo::getInstance()->getType(),0);
         if(NULL == poDataset)
         {
-            GDALClose(poDataset);
             CPLFree(pafData);
             return NULL;
         }
@@ -102,18 +100,17 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
 GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poDataset, int div, QString name)
 {
     float *pafData;
-    if(KPicInfo::dataAttach(piDataset)) {KPicInfo::getInstance()->build();}
+    if(KPicInfo::dataAttach(piDataset)) { KPicInfo::getInstance()->build();}
     int bandNum = KPicInfo::getInstance()->getBandNum();
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();
     pafData = (float *) CPLMalloc(sizeof(float)*nXSize*nYSize);
-    GDALRasterBand * piBand = 0;
+    GDALRasterBand * piBand = NULL;
     bool beSame = K_CheckDataSetEqu(piDataset,poDataset);
 
     if(!beSame){
         QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%colorReduce";
         if(!name.isEmpty()){ tempName = name; }
-        tempName += ".";
 
         const char *pszFormat = piDataset->GetDriverName();
         GDALDriver *poDriver = GetGDALDriverManager()->GetDriverByName(pszFormat);
@@ -124,20 +121,19 @@ GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poData
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "colorReduce:Driver %s supports Create() method.\n", pszFormat );
+            qDebug( "colorReduce:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
         {
             poDriver = GetGDALDriverManager()->GetDriverByName("BMP");
-            tempName += "bmp";
+            tempName += ".bmp";
         }
 
         poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize
                                      ,bandNum,GDT_Int32,0);
         if(NULL == poDataset)
         {
-            GDALClose(poDataset);
             CPLFree(pafData);
             return NULL;
         }
@@ -202,7 +198,6 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
 
         QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%img2gray";
         if(!name.isEmpty()){ tempName = name; }
-        tempName += ".";
 
         const char *pszFormat = piDataset->GetDriverName();
         GDALDriver *poDriver = GetGDALDriverManager()->GetDriverByName(pszFormat);
@@ -213,20 +208,19 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "img2gray:Driver %s supports Create() method.\n", pszFormat );
+            qDebug( "img2gray:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
         {
             poDriver = GetGDALDriverManager()->GetDriverByName("BMP");
-            tempName += "bmp";
+            tempName += ".bmp";
         }
 
         poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize
                                      ,1,GDT_Byte,0);
         if(NULL == poDataset)
         {
-            GDALClose(poDataset);
             CPLFree(pafData[0]);
             CPLFree(pafData[1]);
             CPLFree(pafData[2]);

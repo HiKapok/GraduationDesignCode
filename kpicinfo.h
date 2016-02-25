@@ -26,6 +26,8 @@ public:
     inline int getHeight(){ return m_YSize; }
     inline GDALDataType getType(){ return m_dataType; }
     inline QString getFileExtName() { return m_extName; }
+    inline QString getFileNoExtName() { return m_fileNoExtName; }
+    inline QString getFileName() { return m_fileName; }
     inline QStringList getBandName() { return m_BandName; }
 private:
     int m_BandNum;
@@ -34,6 +36,8 @@ private:
     double m_vMax;
     double m_vMin;
     QString m_extName;
+    QString m_fileNoExtName;
+    QString m_fileName;
     QStringList m_BandName;
     GDALDataType m_dataType;
 };

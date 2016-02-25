@@ -18,7 +18,10 @@ TEMPLATE = app
 SOURCES += main.cpp \
     kimagecvt.cpp \
     kpicinfo.cpp \
-    common.cpp
+    common.cpp \
+    kfeaturelbp.cpp \
+    kprogressbar.cpp \
+    ksplitimage.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -205,4 +208,7 @@ LIBS += -LE:/QTPrj/GraduationDesignTest/QtLibsvm/lib\
 HEADERS += \
     kimagecvt.h \
     kpicinfo.h \
-    common.h
+    common.h \
+    kfeaturelbp.h \
+    kprogressbar.h \
+    ksplitimage.h

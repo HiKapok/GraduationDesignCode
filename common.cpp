@@ -106,3 +106,10 @@ void calFastHistogram( GDALRasterBand *poBand, GUIntBig *panHistogram )
     }
     CPLFree(pabyData);
 }
+
+GUIntBig get2Power(GByte pow)
+{
+    GUIntBig temp = 1;
+    while(pow--) temp*=2;
+    return temp;
+}

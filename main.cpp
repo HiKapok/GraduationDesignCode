@@ -4,6 +4,8 @@
 #include "common.h"
 #include "kimagecvt.h" //for image convert
 #include "kpicinfo.h"
+#include "kfeaturelbp.h"
+#include "ksplitimage.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -11,6 +13,7 @@
 #include <QCommandLineOption>
 #include <QStringList>
 #include <QObject>
+//#include <QRegularExpression>
 
 int main(int argc, char *argv[])
 {
@@ -66,6 +69,25 @@ int main(int argc, char *argv[])
     qDebug()<<"the input filepath"<<fileinput;
     qDebug()<<"the output filepath"<<fileoutput;
 
+//    KFeatureLBP *t= new KFeatureLBP();
+//    float a[20]={1,2,3,4,
+//             2,3,4,5,
+//             3,4,5,6,
+//             4,5,6,7,
+//             5,6,7,8};
+//    float *b = new float(110);
+//    t->replicateExtend(a,b,10,11);
+//    for(int i=0;i<11;++i)
+//    {
+//        for(int j=0;j<10;++j)
+//        {
+//            std::cout<<int(b[10*i+j])<<" ";
+//        }
+//        std::cout<<"\r\n";
+//    }
+//    std::cout<<"end"<<std::endl;
+//    delete b;
+
     GDALDataset *piDataset = NULL;
     GDALAllRegister();
 
@@ -80,13 +102,26 @@ int main(int argc, char *argv[])
 
     if((poDataset = KImageCvt::img2gray(piDataset,poDataset,fileoutput)) == NULL) { std::cout<<"image convert failed\a"<<std::endl; exit( 1 ); }
 
-    KImageCvt::colorReduce(poDataset,poDataset,128);
+    // Color Reduce
+    //KImageCvt::colorReduce(poDataset,poDataset,128);
+
+    // Calculate LBP Features
+    GDALDataset *poLBPDataset = NULL;
+    KFeatureLBP mLBPFeature(poDataset,poLBPDataset,8,1);
+    poLBPDataset = mLBPFeature.build("D:\\tempimg\\test");
+    if(NULL != poLBPDataset){ if(!mLBPFeature.run()) std::cout<<"main:calculate LBP Feature failed!"<<std::endl; }
+    else std::cout<<"main:LBP build failed!"<<std::endl;
+
+//    split the image
+//    KSplitImage split(piDataset,"ss\\tt");
+//    split.split(8,8);
 
     GDALClose(piDataset);
     GDALClose(poDataset);
 
-    std::cout<<"app run over..."<<std::endl;
-
-    return app.exec();
+    std::cout<<"app run over...";
+    std::cout.flush();
+//    return app.exec();
+    return 0;
 }
 
