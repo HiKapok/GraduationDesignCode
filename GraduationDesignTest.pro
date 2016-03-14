@@ -21,7 +21,8 @@ SOURCES += main.cpp \
     common.cpp \
     kfeaturelbp.cpp \
     kprogressbar.cpp \
-    ksplitimage.cpp
+    ksplitimage.cpp \
+    kcalpmk.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -211,4 +212,5 @@ HEADERS += \
     common.h \
     kfeaturelbp.h \
     kprogressbar.h \
-    ksplitimage.h
+    ksplitimage.h \
+    kcalpmk.h
