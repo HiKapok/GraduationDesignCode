@@ -7,6 +7,8 @@
 #include "kfeaturelbp.h"
 #include "ksplitimage.h"
 
+#include "kmakesvmtable.h"
+
 #include <QCoreApplication>
 #include <QDebug>
 #include <QCommandLineParser>
@@ -70,55 +72,31 @@ int main(int argc, char *argv[])
     qDebug()<<"the input filepath"<<fileinput;
     qDebug()<<"the output filepath"<<fileoutput;
 
-//    KFeatureLBP *t= new KFeatureLBP();
-//    float a[20]={1,2,3,4,
-//             2,3,4,5,
-//             3,4,5,6,
-//             4,5,6,7,
-//             5,6,7,8};
-//    float *b = new float(110);
-//    t->replicateExtend(a,b,10,11);
-//    for(int i=0;i<11;++i)
-//    {
-//        for(int j=0;j<10;++j)
-//        {
-//            std::cout<<int(b[10*i+j])<<" ";
-//        }
-//        std::cout<<"\r\n";
-//    }
-//    std::cout<<"end"<<std::endl;
-//    delete b;
+    KMakeSVMTable svmTbl(fileinput,fileoutput);
+    svmTbl.makeTable();
+//    GDALDataset *piDataset = NULL;
+//    GDALAllRegister();
 
-    GDALDataset *piDataset = NULL;
-    GDALAllRegister();
+//    piDataset = (GDALDataset *) GDALOpen( fileinput.toUtf8().constData(), GA_ReadOnly );
 
-    piDataset = (GDALDataset *) GDALOpen( fileinput.toUtf8().constData(), GA_ReadOnly );
+//    K_OPEN_ASSERT(piDataset,fileinput.toStdString());
 
-    K_OPEN_ASSERT(piDataset,fileinput.toStdString());
+//    KPicInfo::dataAttach(piDataset);
+//    KPicInfo::getInstance()->build();
 
-    KPicInfo::dataAttach(piDataset);
-    KPicInfo::getInstance()->build();
+//    GDALDataset *poDataset = NULL;
 
-    GDALDataset *poDataset = NULL;
+//    if((poDataset = KImageCvt::img2gray(piDataset,poDataset,fileoutput)) == NULL) { std::cout<<"image convert failed\a"<<std::endl; exit( 1 ); }
 
-    if((poDataset = KImageCvt::img2gray(piDataset,poDataset,fileoutput)) == NULL) { std::cout<<"image convert failed\a"<<std::endl; exit( 1 ); }
+//    // Color Reduce
+//    //KImageCvt::colorReduce(poDataset,poDataset,128);
 
-    // Color Reduce
-    //KImageCvt::colorReduce(poDataset,poDataset,128);
+//    // split the image
+//    //KSplitImage split(piDataset,"ss\\tt");
+//    //split.split(8,8);
 
-    // Calculate LBP Features
-    GDALDataset *poLBPDataset = NULL;
-    KFeatureLBP mLBPFeature(poDataset,poLBPDataset,8,1);
-    poLBPDataset = mLBPFeature.build("D:\\tempimg\\test");
-    if(NULL != poLBPDataset){ if(!mLBPFeature.run()) std::cout<<"main:calculate LBP Feature failed!"<<std::endl; }
-    else std::cout<<"main:LBP build failed!"<<std::endl;
-
-//    split the image
-//    KSplitImage split(piDataset,"ss\\tt");
-//    split.split(8,8);
-
-    GDALClose(piDataset);
-    GDALClose(poDataset);
+//    GDALClose(piDataset);
+//    GDALClose(poDataset);
 
     std::cout<<"app run over...";
     std::cout.flush();

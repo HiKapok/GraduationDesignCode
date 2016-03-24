@@ -12,6 +12,25 @@
 #include <QFile>
 #include <QDebug>
 
+// test the extend function
+//    KFeatureLBP *t= new KFeatureLBP();
+//    float a[20]={1,2,3,4,
+//             2,3,4,5,
+//             3,4,5,6,
+//             4,5,6,7,
+//             5,6,7,8};
+//    float *b = new float(110);
+//    t->replicateExtend(a,b,10,11);
+//    for(int i=0;i<11;++i)
+//    {
+//        for(int j=0;j<10;++j)
+//        {
+//            std::cout<<int(b[10*i+j])<<" ";
+//        }
+//        std::cout<<"\r\n";
+//    }
+//    std::cout<<"end"<<std::endl;
+//    delete b;
 KFeatureLBP::~KFeatureLBP()
 {
     char ** filelist =m_piDataset->GetFileList();
@@ -202,7 +221,7 @@ GDALDataset *KFeatureLBP::build(QString fileName)
     if(!beSame){
 
         QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%KFeatureLBP";
-        QString tempInputName=QCoreApplication::applicationDirPath()+"/tempExtImg%%KFeatureLBP."+KPicInfo::getInstance()->getFileExtName();;
+        QString tempInputName=QCoreApplication::applicationDirPath()+"/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
         if(!m_fileName.isEmpty()){ tempName = m_fileName; }
 
         const char *pszFormat = m_piDataset->GetDriverName();
@@ -215,13 +234,14 @@ GDALDataset *KFeatureLBP::build(QString fileName)
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
             qDebug( "KFeatureLBP:Driver %s supports Create() method.", pszFormat );
-            tempName += KPicInfo::getInstance()->getFileExtName();
+            m_realExtName = KPicInfo::getInstance()->getFileExtName();
         }
         else
         {
             poDriver = GetGDALDriverManager()->GetDriverByName("BMP");
-            tempName += ".bmp";
+            m_realExtName = ".bmp";
         }
+        tempName += m_realExtName;
         if(NULL != m_poDataset) GDALClose(m_poDataset);
         // allocate the output Dataset
         m_poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize

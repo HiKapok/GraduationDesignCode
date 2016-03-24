@@ -17,7 +17,7 @@ private:
     static void releaseInstance();
 public:
     static KPicInfo * getInstance();
-    static bool dataAttach(GDALDataset *);
+    static bool dataAttach(GDALDataset *,bool=false);
     void build();
     inline double getMin(){ return m_vMin; }
     inline double getMax(){ return m_vMax; }

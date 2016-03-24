@@ -20,6 +20,7 @@
 #define K_PROGRESS_START(progress) progress.start()
 #define K_PROGRESS_END(progress) do { progress.finish(); while(progress.isRunning()); } while(0)
 
+// the nested progressbar is hiden automatic
 class KProgressBar : public QThread
 {
     void run() Q_DECL_OVERRIDE {
@@ -41,6 +42,7 @@ public:
     inline void finish(){ if(Progress_Run==m_tRunning) m_iNowPos=m_iTotalItems; }
 private:
     static int m_siHisWidth;
+    static bool sBeRunning;
     QString m_tips;
     unsigned long int  m_iTotalSteps;
     int m_iTotalItems;

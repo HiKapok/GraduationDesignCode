@@ -45,28 +45,39 @@ void KPicInfo::releaseInstance()
     m_pInstance = NULL;
 }
 
-bool KPicInfo::dataAttach(GDALDataset * dataset)
+bool KPicInfo::dataAttach(GDALDataset * dataset,bool notSame)
 {
-    m_pHisDataset = m_pDataset;
 
-    if(NULL == m_pDataset) m_pDataset = dataset;
-    else
-    {
-        if(!K_CheckDataSetEqu(m_pHisDataset, dataset))
+    m_pHisDataset = m_pDataset;
+    // be sure not same
+    if(notSame){
+        m_pDataset = dataset;
+        if(NULL != m_pInstance)
         {
-            if(NULL == dataset) return false;
-            else m_pDataset = dataset;
+            releaseInstance();
         }
-        else{
-            return false;
+        //qDebug()<<"dataset attach";
+        return true;
+    }else{
+        if(NULL == m_pDataset) m_pDataset = dataset;
+        else
+        {
+            if(!K_CheckDataSetEqu(m_pHisDataset, dataset))
+            {
+                if(NULL == dataset) return false;
+                else m_pDataset = dataset;
+            }
+            else{
+                return false;
+            }
         }
+        if(NULL != m_pInstance)
+        {
+            releaseInstance();
+        }
+        //qDebug()<<"dataset attach";
+        return true;
     }
-    if(NULL != m_pInstance)
-    {
-        releaseInstance();
-    }
-    //qDebug()<<"dataset attach";
-    return true;
 }
 
 void KPicInfo::build()

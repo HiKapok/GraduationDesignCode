@@ -14,8 +14,9 @@ public:
     ~KFeatureLBP();
     KFeatureLBP(GDALDataset *, GDALDataset *, int=8, int=1);
     inline GDALDataset * getDataSet() { return m_poDataset; }
-    bool run(Kapok::K_BorderTypes=Kapok::Border_Default,bool=true);
+    bool run(Kapok::K_BorderTypes=Kapok::Border_Default,bool=false);
     GDALDataset * build(QString="");
+    QString getRealExtName(){ return m_realExtName; }
 private:
     GDALDataset *m_piDataset;
     GDALDataset *m_piOrgDataset;
@@ -23,6 +24,7 @@ private:
     int m_kernelRadius;
     int m_sampleNum;
     QString m_fileName;
+    QString m_realExtName;
     unsigned char *refTable;
     bool calLBP(float * ,GByte *, int,int,bool,KProgressBar* =NULL);
     bool constExtend(float * ,float *,int,int,float);

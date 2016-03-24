@@ -22,7 +22,10 @@ SOURCES += main.cpp \
     kfeaturelbp.cpp \
     kprogressbar.cpp \
     ksplitimage.cpp \
-    kcalpmk.cpp
+    kcalpmk.cpp \
+    kbuildhistogram.cpp \
+    kpyrimadmatch.cpp \
+    kmakesvmtable.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -235,4 +238,7 @@ HEADERS += \
     kfeaturelbp.h \
     kprogressbar.h \
     ksplitimage.h \
-    kcalpmk.h
+    kcalpmk.h \
+    kbuildhistogram.h \
+    kpyrimadmatch.h \
+    kmakesvmtable.h
