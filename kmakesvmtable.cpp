@@ -47,36 +47,77 @@ KMakeSVMTable::KMakeSVMTable(map<QString,int> inputList, QString output, bool be
 }
 
 KMakeSVMTable::KMakeSVMTable(QString parentDir, QString output, bool beTrain)
+    :m_sOutput(output),
+     m_beTraining(beTrain)
 {
-    map<QString,int> inputList;
-    buildInputList(inputList,parentDir);
-    KMakeSVMTable(inputList,output,beTrain);
+    buildInputList(m_vecInput,parentDir);
+    m_sOutRoot = getDirRoot(m_sOutput);
+    QString mapFileOutPath = m_sOutRoot;
+    if(m_beTraining) mapFileOutPath += "trainFileLabelMap.txt";
+    else mapFileOutPath += "testFileIndexMap.txt";
+
+    std::fstream fs(mapFileOutPath.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
+
+    for(map<QString,int>::iterator it = m_vecInput.begin();it!=m_vecInput.end();++it){
+        QString tempString("");
+        tempString = QString("label:%1\tfile:%2\n").arg(it->second,-6).arg(it->first);
+        fs<<tempString.toStdString();
+    }
+    fs.close();
+    buildAllPyramid();
 }
 
 void KMakeSVMTable::makeTable()
 {
     std::fstream fs(m_sOutput.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
+//    m_vecPyramid["sdsddd"]=5;
+//    m_vecPyramid["sdsgdeedgergd"]=4;
+//    m_vecPyramid["vvvv"]=67;
+    QString mapFileOutPath = m_sOutRoot + "trainFileIndexMap.txt";;
+    std::fstream fsMap(mapFileOutPath.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 
     KProgressBar progressBar("BuildSimilarityTbl",m_vecPyramid.size()*m_vecPyramid.size(),80);
     K_PROGRESS_START(progressBar);
-
+//qDebug()<<m_sOutput;
     long index=1;
     long innerIndex=1;
+    //QString tempLine("dddd");
     for(map<QString,int>::iterator it = m_vecPyramid.begin();it != m_vecPyramid.end();++it,++index){
+        // this way may arise overflow bugs, which cause data cannot be write to file but be printed to the screen!
+//        innerIndex=1;
+//        QString mapTemp=QString("index:%1\tfile:%2\n").arg(index,-6).arg(it->first);
+//        QString tempLine=QString("%1 0:%2").arg(it->second).arg(index);
+//        for(unsigned long tempIndex = 0;tempIndex<m_vecPyramid.size();++tempIndex){
+//            tempLine+=QString(" %1:%%2").arg(tempIndex+1).arg(tempIndex+1);
+//        }
+//        for(map<QString,int>::iterator itAnother = m_vecPyramid.begin();itAnother != m_vecPyramid.end();++itAnother,++innerIndex){
+//            // do match
+//            KPyrimadMatch match(it->first,itAnother->first);
+//            double similarity = match.doMatch();
+//            tempLine=QString(tempLine).arg(similarity);
+//            progressBar.autoUpdate();
+//        }
+//        fs<<tempLine.toStdString()<<"\n";
+//        fsMap<<mapTemp.toStdString();
         innerIndex=1;
+        QString mapTemp=QString("index:%1\tfile:%2\n").arg(index,-6).arg(it->first);
         QString tempLine=QString("%1 0:%2").arg(it->second).arg(index);
-        for(unsigned long tempIndex = 0;tempIndex<m_vecPyramid.size();++tempIndex){
-            tempLine+=QString(" %1:%%2").arg(tempIndex+1).arg(tempIndex+1);
-        }
+        fs<<tempLine.toStdString();
         for(map<QString,int>::iterator itAnother = m_vecPyramid.begin();itAnother != m_vecPyramid.end();++itAnother,++innerIndex){
             // do match
             KPyrimadMatch match(it->first,itAnother->first);
             double similarity = match.doMatch();
-            tempLine=tempLine.arg(similarity);
+            tempLine = QString(" %1:%2").arg(innerIndex).arg(similarity);
+            fs<<tempLine.toStdString();
             progressBar.autoUpdate();
         }
-        fs<<tempLine.toStdString()<<"\n";
+        fs<<"\n";
+        fs.flush();
+        fsMap<<mapTemp.toStdString();
+        fsMap.flush();
     }
+    fs.close();
+    fsMap.close();
     K_PROGRESS_END(progressBar);
 }
 
@@ -130,21 +171,16 @@ void KMakeSVMTable::buildInputList(map<QString,int>& list,QString RootDir)
     }
 }
 
-void KMakeSVMTable::buildAllPyramid()
+void KMakeSVMTable::buildAllPyramid(bool beOverwrite)
 {
-    std::streambuf *backup;
-    std::ifstream fin;
-    fin.open("data.in");
-    backup = std::cin.rdbuf();   // back up cin's streambuf
-    std::cin.rdbuf(fin.rdbuf()); // assign file's streambuf to cin
-    // ... cin will read from file
-    std::cin.rdbuf(backup);     // restore cin's original streambuf
 
     static bool firstInstance = true;
     GDALAllRegister();
 
+    KPicInfo::beEcho=false;// close the echo char
+
     QRegularExpression re("[\\\\/]");
-    KProgressBar progressBar("BuildAllPyramid",m_vecInput.size(),80);
+    KProgressBar progressBar("BuildAllPyramid",m_vecInput.size()*2,80);
     K_PROGRESS_START(progressBar);
 
     for(map<QString,int>::iterator it = m_vecInput.begin();it != m_vecInput.end();++it){
@@ -163,6 +199,9 @@ void KMakeSVMTable::buildAllPyramid()
         // no need for extend filename
         //QString tempNameExt= tempName.right(tempName.length()-tempName.lastIndexOf("."));
 
+        QString pyrimadName=tempOut+"-primary.bin";
+        QFile file(pyrimadName);
+if(!file.exists()){
         KPicInfo::dataAttach(piDataset,true);
         KPicInfo::getInstance()->build();
 
@@ -170,18 +209,23 @@ void KMakeSVMTable::buildAllPyramid()
 
         if((poDataset = KImageCvt::img2gray(piDataset,poDataset,tempOut+"-gray")) == NULL) { std::cout<<"image convert failed\a"<<std::endl; exit( 1 ); }
 
+        KPicInfo::dataAttach(poDataset,true);
+        KPicInfo::getInstance()->build();
+
         // Calculate LBP Features
         GDALDataset *poLBPDataset = NULL;
-        KFeatureLBP mLBPFeature8_1(poDataset,poLBPDataset,8,1);
-        poLBPDataset = mLBPFeature8_1.build(tempOut+"-lbp8_1");
-        if(NULL != poLBPDataset){ if(!mLBPFeature8_1.run()) std::cout<<"KMakeSVMTable:calculate LBP8_1 Feature failed!"<<std::endl; }
-        else std::cout<<"KMakeSVMTable:LBP8_1 build failed!"<<std::endl;
-
-        poLBPDataset=NULL;
         KFeatureLBP mLBPFeature16_2(poDataset,poLBPDataset,16,2);
         poLBPDataset = mLBPFeature16_2.build(tempOut+"-lbp16_2");
         if(NULL != poLBPDataset){ if(!mLBPFeature16_2.run()) std::cout<<"KMakeSVMTable:calculate LBP16_2 Feature failed!"<<std::endl; }
         else std::cout<<"KMakeSVMTable:LBP16_2 build failed!"<<std::endl;
+
+        progressBar.autoUpdate();
+
+        poLBPDataset=NULL;
+        KFeatureLBP mLBPFeature8_1(poDataset,poLBPDataset,8,1);
+        poLBPDataset = mLBPFeature8_1.build(tempOut+"-lbp8_1");
+        if(NULL != poLBPDataset){ if(!mLBPFeature8_1.run()) std::cout<<"KMakeSVMTable:calculate LBP8_1 Feature failed!"<<std::endl; }
+        else std::cout<<"KMakeSVMTable:LBP8_1 build failed!"<<std::endl;
 
         GDALClose(piDataset);
         GDALClose(poDataset);
@@ -194,18 +238,19 @@ void KMakeSVMTable::buildAllPyramid()
         primaryHist.save();
 
         // build the pyrimad
-        QString pyrimadName=tempOut+"-primary.bin";
         KCalPMK pmk(tempOut+"-histogram.bin",pyrimadName,firstInstance);
         pmk.savePtramid();
 
         firstInstance = false;
-
+}
         m_vecPyramid[pyrimadName]=it->second;
 
+        //qDebug()<<"size:"<<m_vecPyramid.size();
         progressBar.autoUpdate();
 
     }
     K_PROGRESS_END(progressBar);
+    KPicInfo::beEcho=true;// trun on the echo char
 }
 
 bool KMakeSVMTable::checkDirName(QString &RootDir)

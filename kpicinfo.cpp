@@ -34,6 +34,7 @@ GDT_CFloat64  Complex Float64 **/
 KPicInfo * KPicInfo::m_pInstance = NULL;
 GDALDataset * KPicInfo::m_pDataset = NULL;
 GDALDataset * KPicInfo::m_pHisDataset = NULL;
+bool KPicInfo::beEcho = true;
 
 KPicInfo::KPicInfo()
 {
@@ -97,16 +98,18 @@ void KPicInfo::build()
     m_XSize = m_pDataset->GetRasterXSize();
     m_YSize = m_pDataset->GetRasterYSize();
 
-    qDebug( "size=%dx%d Type=%s BandNum=%d"
-            ,m_XSize, m_YSize
-            ,GDALGetDataTypeName(m_dataType = poBand->GetRasterDataType())
-            ,m_BandNum);
+    m_dataType = poBand->GetRasterDataType();
+
+    if(beEcho) qDebug( "size=%dx%d Type=%s BandNum=%d"
+                ,m_XSize, m_YSize
+                ,GDALGetDataTypeName(m_dataType)
+                ,m_BandNum);
     adfMinMax[0] = poBand->GetMinimum( &tempMin );
     adfMinMax[1] = poBand->GetMaximum( &tempMax );
     if( ! (tempMin && tempMax) )
         GDALComputeRasterMinMax((GDALRasterBandH)poBand, TRUE, adfMinMax);
 
-    qDebug("MinV=%.3fd, MaxV=%.3f",adfMinMax[0], adfMinMax[1]);
+    if(beEcho) qDebug("MinV=%.3fd, MaxV=%.3f",adfMinMax[0], adfMinMax[1]);
     m_vMin = adfMinMax[0];
     m_vMax = adfMinMax[1];
 
@@ -130,7 +133,7 @@ void KPicInfo::build()
 #ifndef NDEBUG
     for(int index = 0;index < m_BandName.length();++index)
     {
-        qDebug()<<m_BandName[index];
+        if(beEcho) qDebug()<<m_BandName[index];
     }
 #endif
 }

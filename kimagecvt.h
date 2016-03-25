@@ -10,9 +10,9 @@ public:
     KImageCvt();
 public:
     static GDALDataset * img2gray(GDALDataset *,GDALDataset *,QString="");
-    static GDALDataset * normalize(GDALDataset *,GDALDataset *,float,float,QString="");
-    static GDALDataset * addWeighted(GDALDataset *,GDALDataset *,float,float,QString="");
-    static GDALDataset * colorReduce(GDALDataset *,GDALDataset *,int,QString="");
+    static GDALDataset * normalize(GDALDataset *,GDALDataset *,float,float,QString="",GDALDataType=GDT_TypeCount);
+    static GDALDataset * addWeighted(GDALDataset *,GDALDataset *,float,float,QString="",GDALDataType=GDT_TypeCount);
+    static GDALDataset * colorReduce(GDALDataset *,GDALDataset *,int,QString="",GDALDataType=GDT_TypeCount);
 };
 
 #endif // KIMAGECVT_H

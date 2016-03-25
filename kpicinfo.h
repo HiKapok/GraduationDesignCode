@@ -16,6 +16,7 @@ private:
     static GDALDataset * m_pHisDataset;
     static void releaseInstance();
 public:
+    static bool beEcho;
     static KPicInfo * getInstance();
     static bool dataAttach(GDALDataset *,bool=false);
     void build();

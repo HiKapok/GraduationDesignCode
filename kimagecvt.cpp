@@ -11,7 +11,7 @@ KImageCvt::KImageCvt()
 {
 }
 
-GDALDataset * KImageCvt::normalize(GDALDataset *piDataset, GDALDataset *poDataset, float dMin, float dMax, QString name)
+GDALDataset * KImageCvt::normalize(GDALDataset *piDataset, GDALDataset *poDataset, float dMin, float dMax, QString name,GDALDataType type)
 {
 //    if(!K_CheckDataSetEqu(piDataset,poDataset))
 //    {
@@ -24,10 +24,10 @@ GDALDataset * KImageCvt::normalize(GDALDataset *piDataset, GDALDataset *poDatase
     if(KPicInfo::dataAttach(piDataset)) KPicInfo::getInstance()->build();
     float vMax = static_cast<float> (KPicInfo::getInstance()->getMax());
     float vMin = static_cast<float> (KPicInfo::getInstance()->getMin());
-    return addWeighted(piDataset,poDataset,(dMax-dMin)/(vMax-vMin),dMin - vMin*(dMax-dMin)/(vMax-vMin),name);
+    return addWeighted(piDataset,poDataset,(dMax-dMin)/(vMax-vMin),dMin - vMin*(dMax-dMin)/(vMax-vMin),name,type);
 }
 
-GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poDataset, float scale, float offset, QString name)
+GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poDataset, float scale, float offset, QString name,GDALDataType type)
 {
     float *pafData;
     if(KPicInfo::dataAttach(piDataset)) KPicInfo::getInstance()->build();
@@ -52,7 +52,7 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "addWeighted:Driver %s supports Create() method.", pszFormat );
+            //qDebug( "addWeighted:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
@@ -61,8 +61,10 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
             tempName += "bmp";
         }
 
+        if(type == GDT_TypeCount) type=KPicInfo::getInstance()->getType();
+
         poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize
-                                     ,bandNum,KPicInfo::getInstance()->getType(),0);
+                                     ,bandNum,type,0);
         if(NULL == poDataset)
         {
             CPLFree(pafData);
@@ -97,7 +99,7 @@ GDALDataset * KImageCvt::addWeighted(GDALDataset *piDataset, GDALDataset *poData
     return poDataset;
 }
 
-GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poDataset, int div, QString name)
+GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poDataset, int div, QString name,GDALDataType type)
 {
     float *pafData;
     if(KPicInfo::dataAttach(piDataset)) { KPicInfo::getInstance()->build();}
@@ -121,7 +123,7 @@ GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poData
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "colorReduce:Driver %s supports Create() method.", pszFormat );
+            //qDebug( "colorReduce:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
@@ -130,8 +132,9 @@ GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poData
             tempName += ".bmp";
         }
 
+        if(type == GDT_TypeCount) type=KPicInfo::getInstance()->getType();
         poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize
-                                     ,bandNum,GDT_Int32,0);
+                                     ,bandNum,type,0);
         if(NULL == poDataset)
         {
             CPLFree(pafData);
@@ -179,13 +182,20 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
     int bandNum = KPicInfo::getInstance()->getBandNum();
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();
+    float vMax = static_cast<float> (KPicInfo::getInstance()->getMax());
+    float vMin = static_cast<float> (KPicInfo::getInstance()->getMin());
+
+    float scale = 255./(vMax-vMin);
+    float offset = -vMin*255./(vMax-vMin);
+
     GDALRasterBand * piBand[3] = {0};
 
-    // only deal with single band or RGB images
-    if(1==bandNum) return normalize(piDataset,poDataset,0,255);
-    else if(3 != bandNum) { std::cout<<"*just support single band or RGB images*"<<std::endl; return NULL; };
+    QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%img2gray";
+    if(!name.isEmpty()){ tempName = name; }
 
-    if((poDataset = normalize(piDataset,poDataset,0,255))==NULL) return NULL;
+    // only deal with single band or RGB images
+    if(1==bandNum) return addWeighted(piDataset,poDataset,scale,offset,tempName,GDT_Byte);
+    else if(3 != bandNum) { std::cout<<"*just support single band or RGB images*"<<std::endl; return NULL; };
 
     float **pafData = new float *[3];
     pafData[0] = (float *) CPLMalloc(sizeof(float)*nXSize*nYSize);
@@ -196,9 +206,6 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
 
     if(!beSame){
 
-        QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%img2gray";
-        if(!name.isEmpty()){ tempName = name; }
-
         const char *pszFormat = piDataset->GetDriverName();
         GDALDriver *poDriver = GetGDALDriverManager()->GetDriverByName(pszFormat);
         if( poDriver == NULL )
@@ -208,7 +215,7 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "img2gray:Driver %s supports Create() method.", pszFormat );
+            //qDebug( "img2gray:Driver %s supports Create() method.", pszFormat );
             tempName += KPicInfo::getInstance()->getFileExtName();
         }
         else
@@ -240,6 +247,10 @@ GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset
     {
         piBand[bandIndex] = piDataset->GetRasterBand(bandIndex + 1);
         piBand[bandIndex]->RasterIO( GF_Read, 0, 0, nXSize, nYSize, pafData[bandIndex], nXSize, nYSize, GDT_Float32, 0, 0 );
+        for(GIntBig index = 0;index < nXSize*nYSize;++index)
+        {
+            pafData[bandIndex][index] = scale * pafData[bandIndex][index] + offset;
+        }
     }
 
     float *pafoData;

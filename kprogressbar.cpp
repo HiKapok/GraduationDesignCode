@@ -1,7 +1,6 @@
 #include "kprogressbar.h"
 
 #include <QDebug>
-#include <iostream>
 #include <cstdlib>
 //#include <QCoreApplication>
 
@@ -13,7 +12,7 @@ KProgressBar::KProgressBar(QString tip, unsigned long int totalSteps, int totalI
       m_iTotalSteps(totalSteps),
       m_iTotalItems(totalItems>100?100:totalItems),
       m_iNowPos(0),
-      m_iHisNowPos(0),
+      m_iHisNowPos(-1),
       m_fNowPos(0.),
       m_fUpdateFreq(1.*totalItems/totalSteps),
       m_tRunning(Progress_Run)

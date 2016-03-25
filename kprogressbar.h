@@ -3,6 +3,8 @@
 
 #include <QString>
 #include <QThread>
+#include <iostream>
+#include <fstream>
 
 /**  how to use a progress bar in the terminal
   *
@@ -17,7 +19,7 @@
   *  K_PROGRESS_END(temp);
   */
 
-#define K_PROGRESS_START(progress) progress.start()
+#define K_PROGRESS_START(progress) if(true != KProgressBar::sBeRunning){ progress.start(); }
 #define K_PROGRESS_END(progress) do { progress.finish(); while(progress.isRunning()); } while(0)
 
 // the nested progressbar is hiden automatic
@@ -31,6 +33,7 @@ public:
         Progress_Run = 0,
         Progress_Cancel = 1,
         Progress_Finish = 2,
+        Progress_Died = 3,
     } K_ProRunTypes;
 
     KProgressBar(QString,unsigned long int, int=60);
@@ -40,9 +43,9 @@ public:
     void autoUpdate(){ m_fNowPos = m_fNowPos + m_fUpdateFreq; m_iNowPos = m_fNowPos+.5; if(m_iNowPos > m_iTotalItems) m_iNowPos = m_iTotalItems; }
     void autoRun();
     inline void finish(){ if(Progress_Run==m_tRunning) m_iNowPos=m_iTotalItems; }
-private:
-    static int m_siHisWidth;
     static bool sBeRunning;
+private:
+    static int m_siHisWidth;   
     QString m_tips;
     unsigned long int  m_iTotalSteps;
     int m_iTotalItems;

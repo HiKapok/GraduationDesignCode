@@ -33,14 +33,7 @@
 //    delete b;
 KFeatureLBP::~KFeatureLBP()
 {
-    char ** filelist =m_piDataset->GetFileList();
-    GDALClose(m_piDataset);
-    // just fetch the first one
-    QString temp(*filelist);
-    CSLDestroy (filelist);
-    QFile file(temp);
-    if(!file.remove()) std::cout<<"KFeatureLBP:remove the temp file failed!"<<std::endl;
-    if(NULL != refTable) CPLFree(refTable);
+
 }
 
 KFeatureLBP::KFeatureLBP(GDALDataset *piDataset, GDALDataset *poDataset, int sampleNum, int kernelRadius)
@@ -199,6 +192,16 @@ bool KFeatureLBP::run(Kapok::K_BorderTypes type,bool toBeNormarlized)
     CPLFree(pafData);
     CPLFree(pafOutData);
 
+    // release
+    char ** filelist =m_piDataset->GetFileList();
+    GDALClose(m_piDataset);
+    // just fetch the first one
+    QString temp(*filelist);
+    CSLDestroy (filelist);
+    QFile file(temp);
+    if(!file.remove()) std::cout<<"KFeatureLBP:remove the temp file failed!"<<std::endl;
+    if(NULL != refTable) CPLFree(refTable);
+
     return (0 == err_code);
 }
 
@@ -206,7 +209,7 @@ GDALDataset *KFeatureLBP::build(QString fileName)
 {
     m_fileName = fileName;
     if(KPicInfo::dataAttach(m_piDataset)) KPicInfo::getInstance()->build();
-
+    //qDebug()<<"failed";qDebug()<<KPicInfo::dataAttach(m_piDataset);
     int bandNum = KPicInfo::getInstance()->getBandNum();
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();
@@ -233,7 +236,7 @@ GDALDataset *KFeatureLBP::build(QString fileName)
         }
         if( CSLFetchBoolean( poDriver->GetMetadata(), GDAL_DCAP_CREATE, FALSE ) )
         {
-            qDebug( "KFeatureLBP:Driver %s supports Create() method.", pszFormat );
+            //qDebug( "KFeatureLBP:Driver %s supports Create() method.", pszFormat );
             m_realExtName = KPicInfo::getInstance()->getFileExtName();
         }
         else
@@ -250,6 +253,7 @@ GDALDataset *KFeatureLBP::build(QString fileName)
         m_piOrgDataset = m_piDataset;
         // +1 is to guarantee the success of bilinear interpolation algorithm
         // build the new handle to store the extended image
+        //qDebug()<<"failed";qDebug()<<KPicInfo::getInstance()->getType();
         m_piDataset = poDriver->Create(tempInputName.toUtf8().data()
                                        ,nXSize+2*m_kernelRadius + 1,nYSize+2*m_kernelRadius + 1
                                        ,bandNum,KPicInfo::getInstance()->getType(),0);

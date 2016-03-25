@@ -27,7 +27,7 @@ private:
     QString getDirRoot(QString);
     bool checkDirName(QString &);
     void buildInputList(map<QString,int>&,QString);
-    void buildAllPyramid();
+    void buildAllPyramid(bool=true);
 };
 
 #endif // KMAKESVMTABLE_H
