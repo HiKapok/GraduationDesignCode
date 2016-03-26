@@ -222,9 +222,10 @@ GDALDataset *KFeatureLBP::build(QString fileName)
     bool beSame = K_CheckDataSetEqu(m_piDataset,m_poDataset);
 
     if(!beSame){
-
         QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%KFeatureLBP";
         QString tempInputName=QCoreApplication::applicationDirPath()+"/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
+        //QString tempName="D:/tempImg%%KFeatureLBP";
+        //QString tempInputName="D:/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
         if(!m_fileName.isEmpty()){ tempName = m_fileName; }
 
         const char *pszFormat = m_piDataset->GetDriverName();

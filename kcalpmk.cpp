@@ -10,13 +10,135 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include <QFile>
+
 #include <iostream>
 #include <fstream>
 #include <limits>
 
 vector<map<vector<int>,long> > KCalPMK::sIndex_map;
 vector<long> KCalPMK::sNowIndex;
+QString KCalPMK::sMapIndexFile="";
 
+// static function
+bool KCalPMK::readMapIndex(QString filename)
+{
+    sMapIndexFile = filename;
+    sNowIndex.clear();
+    sIndex_map.clear();
+    QFile file(sMapIndexFile);
+    if(!sMapIndexFile.isEmpty() && file.exists()){
+        std::fstream fs(sMapIndexFile.toUtf8().constData(),std::ios_base::binary|std::ios_base::in);
+        long tempLong = 0;
+        long tempCount = 0;
+        int tempInt = 0;
+        /* read nowIndex */
+        fs.read(reinterpret_cast<char *>(&tempCount),sizeof(long));
+        for(long index = 0;index<tempCount;++index){
+            fs.read(reinterpret_cast<char *>(&tempLong),sizeof(long));
+            sNowIndex.push_back(tempLong);
+        }
+        /* read map vector */
+        fs.read(reinterpret_cast<char *>(&tempCount),sizeof(long));
+        sIndex_map.resize(tempCount);
+        for(long index = 0;index<tempCount;++index){
+            long mapLength = 0;
+            map<vector<int>,long> tempMaps;
+            fs.read(reinterpret_cast<char *>(&mapLength),sizeof(long));
+            /* read each map */
+            for(long mapCount = 0;mapCount<mapLength;++mapCount){
+                long vecLength = 0;
+                vector<int> tempVectors;
+                fs.read(reinterpret_cast<char *>(&vecLength),sizeof(long));
+                for(long vecCount = 0;vecCount<vecLength;++vecCount){
+                    fs.read(reinterpret_cast<char *>(&tempInt),sizeof(int));
+                    tempVectors.push_back(tempInt);
+                }
+                fs.read(reinterpret_cast<char *>(&tempLong),sizeof(long));
+                tempMaps[tempVectors]=tempLong;
+            }
+            sIndex_map[index]=tempMaps;
+        }
+
+        fs.close();
+
+        // print to stdout for test
+//        for(unsigned long index = 0;index<sNowIndex.size();++index){
+//            qDebug()<<QString("NowIndex %1th:%2").arg(index).arg(sNowIndex[index]);
+//        }
+//        for(unsigned vecIndex = 0;vecIndex<sIndex_map.size();++vecIndex){
+//            for(map<vector<int>,long>::iterator it=sIndex_map[vecIndex].begin();it!=sIndex_map[vecIndex].end();++it){
+//                QString temp=QString("%1:[").arg(vecIndex);
+//                for(unsigned long index = 0;index<(it->first).size();++index){
+//                    temp+=QString("%1,").arg((it->first)[index]);
+//                }
+//                temp+="]:";
+//                temp+=QString("%1").arg(it->second);
+//                qDebug()<<temp;
+//            }
+//        }
+        return true;
+    }
+    return false;
+}
+// static function
+void KCalPMK::saveMapIndex()
+{
+//    sNowIndex.push_back(45);
+//    sNowIndex.push_back(425);
+//    sNowIndex.push_back(445);
+//    sNowIndex.push_back(15);
+//    vector<int> a;
+//    map<vector<int>,long> m;
+//    a.push_back(1);
+//    a.push_back(2);
+//    m[a]=2323;
+//    a.push_back(2);
+//    m[a]=22;
+//    a.push_back(56);
+//    m[a]=13;
+//    sIndex_map.push_back(m);
+//    a.push_back(1111);
+//    m[a]=111;
+//    sIndex_map.push_back(m);
+    if(!sMapIndexFile.isEmpty()){
+        std::fstream fs(sMapIndexFile.toUtf8().constData(),std::ios_base::binary|std::ios_base::out|std::ios_base::trunc);
+        long tempLong = 0;
+        int tempInt = 0;
+        /* write nowIndex */
+        // this is the length
+        tempLong = sNowIndex.size();
+        fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+        // data here
+        for(unsigned long index = 0;index<sNowIndex.size();++index){
+            tempLong = sNowIndex[index];
+            fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+        }
+        /* map follows */
+        // this is the length
+        tempLong = sIndex_map.size();
+        fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+        // data here
+        for(unsigned long index = 0;index<sIndex_map.size();++index){
+            // this is the length of each map
+            tempLong = sIndex_map[index].size();
+            fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+            // data here
+            for(map<vector<int>,long>::iterator it=sIndex_map[index].begin();it!=sIndex_map[index].end();++it){
+                tempLong = (it->first).size();
+                fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+                for(unsigned int vecIndex = 0;vecIndex<(it->first).size();++vecIndex){
+                    tempInt = (it->first)[vecIndex];
+                    fs.write(reinterpret_cast<char *>(&tempInt),sizeof(int));
+                }
+                tempLong = it->second;
+                fs.write(reinterpret_cast<char *>(&tempLong),sizeof(long));
+            }
+        }
+        fs.close();
+    }
+}
+// make beNewInstance true if you want to ignore any mapfile to read but write only, or map will be readed from and stored into the specified file
 KCalPMK::KCalPMK(QString input, QString output,bool beNewInstance,double scale)
     :m_sInput(input),
     m_sOutput(output),
@@ -26,7 +148,6 @@ KCalPMK::KCalPMK(QString input, QString output,bool beNewInstance,double scale)
 
     readPrimaryHist();
     prepare();
-
     if(beNewInstance){
         sIndex_map.clear();
         sNowIndex.clear();

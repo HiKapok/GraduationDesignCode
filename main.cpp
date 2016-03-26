@@ -7,7 +7,7 @@
 #include "kfeaturelbp.h"
 #include "ksplitimage.h"
 
-#include "kmakesvmtable.h"
+#include "kmakelbp_svmtable.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -15,6 +15,9 @@
 #include <QCommandLineOption>
 #include <QStringList>
 #include <QObject>
+#include <QProcess>
+
+#include "kcalpmk.h"
 
 //#include <QRegularExpression>
 
@@ -29,51 +32,82 @@ int main(int argc, char *argv[])
     parser.addHelpOption();
     parser.addVersionOption();
 
-    parser.addPositionalArgument("SourceImage",QObject::tr("\tthe full path of the source input image"));
-    parser.addPositionalArgument("DestinationImage",QObject::tr("\tthe path of the output image without a extendname and the format don't support are convert to bmp"));
+    parser.addPositionalArgument("TrainImages",QObject::tr("\tthe parent directorypath of the train images folders"));
+    parser.addPositionalArgument("TestImages",QObject::tr("\tthe parent directorypath of the test images folders"));
+    parser.addPositionalArgument("PredictOut",QObject::tr("\tthe filepath of the predict output"));
 
     QCommandLineOption textureType(QStringList()<<"t"<<"type",QObject::tr("the texture to be calculate"));
     parser.addOption(textureType);
+
+    QCommandLineOption beOverwriteCache("o",QObject::tr("whether to overwrite the caches"));
+    parser.addOption(beOverwriteCache);
 
     parser.process(app);
 
     const QStringList argslist = parser.positionalArguments();
 
-    QString fileinput("D:\\test.tif");
-    QString fileoutput("D:\\test.tif");
+//    QString fileinput("D:\\test.tif");
+//    QString fileoutput("D:\\test.tif");
 
-    if(argslist.length()>2)
+    QString TrainImages("");
+    QString TestImages("");
+    QString PredictOut("");
+    if(argslist.length()>3)
     {
-        std::cout<<"the more position args are discard"<<std::endl;
-        fileinput = argslist[0];
-        fileoutput = argslist[1];
-    }else if(argslist.length() != 0){
-        fileinput = argslist[0];
-        if(2 == argslist.length()){
-            fileoutput = argslist[1];
-        }else{
-            const QStringList tempList = fileinput.split(".");
+        std::cout<<"the more position args are discarded"<<std::endl;
+        TrainImages = argslist[0];
+        TestImages = argslist[1];
+        PredictOut = argslist[2];
+    }else if(argslist.length() > 1){
+        if(3 == argslist.length()){
+            TrainImages = argslist[0];
+            TestImages = argslist[1];
+            PredictOut = argslist[2];
 
-            fileoutput.clear();
-            for(int index = 0;index < tempList.length() - 1;++index)
-            {
-                fileoutput += tempList[index];
-                fileoutput += ".";
-            }
-//            fileoutput = fileoutput.left(fileoutput.length()-1)+"-out.";
-//            fileoutput += tempList[tempList.length()-1];
-            fileoutput = fileoutput.left(fileoutput.length()-1)+"-out";
-            std::cout<<"the output filename are set default: "<<(fileoutput/*+"."+tempList[tempList.length()-1]*/).toStdString()<<std::endl;
+        }else{
+            TrainImages = argslist[0];
+            TestImages = argslist[0]+"-test";
+            PredictOut = argslist[1];
+//            const QStringList tempList = fileinput.split(".");
+
+//            fileoutput.clear();
+//            for(int index = 0;index < tempList.length() - 1;++index)
+//            {
+//                fileoutput += tempList[index];
+//                fileoutput += ".";
+//            }
+////            fileoutput = fileoutput.left(fileoutput.length()-1)+"-out.";
+////            fileoutput += tempList[tempList.length()-1];
+//            fileoutput = fileoutput.left(fileoutput.length()-1)+"-out";
+//            std::cout<<"the output filename are set default: "<<(fileoutput/*+"."+tempList[tempList.length()-1]*/).toStdString()<<std::endl;
         }
     }else{
-        std::cout<<"you must give the input and output filename"<<std::endl;
+        std::cout<<"you must give enough args"<<std::endl;
         exit( 1 );
     }
-    qDebug()<<"the input filepath"<<fileinput;
-    qDebug()<<"the output filepath"<<fileoutput;
+    QString typeValue("lbp");
+    if(parser.isSet(textureType)) typeValue = parser.value(textureType);
+    //qDebug()<<"the input filepath"<<fileinput;
+    //qDebug()<<"the output filepath"<<fileoutput;
+    if(typeValue=="lbp"){
 
-    KMakeSVMTable svmTbl(fileinput,fileoutput);
-    svmTbl.makeTable();
+        bool beOverWrite = parser.isSet(beOverwriteCache);
+        KMakeLBP_SVMTable svmTbl(TrainImages,TestImages,PredictOut,beOverWrite);
+        svmTbl.makeTable();
+        QString exePath=QCoreApplication::applicationDirPath()+"/windows/";
+        QStringList args;
+        args.push_back(svmTbl.getTrainFile());
+        args.push_back(svmTbl.getRootDir()+"model.bin");
+        QProcess::execute(exePath+"svm-train.exe",args);
+        args.clear();
+        args.push_back(svmTbl.getTestFile());
+        args.push_back(svmTbl.getRootDir() + "model.bin");
+        args.push_back(PredictOut);
+        QProcess::execute(exePath+"svm-predict.exe",args);
+
+    }else{
+        qDebug()<<"unknown feature type to use!";
+    }
 //    GDALDataset *piDataset = NULL;
 //    GDALAllRegister();
 

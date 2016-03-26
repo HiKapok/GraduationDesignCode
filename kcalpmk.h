@@ -22,6 +22,8 @@ public:
     KCalPMK(QString,QString,bool=false,double=1.);
     void savePyramid_unittest();
     void savePtramid();
+    static bool readMapIndex(QString);
+    static void saveMapIndex();
 private:
     int m_iMaxLevel;
     long m_dDiameter;
@@ -43,6 +45,7 @@ private:
 private:
     static vector<map<vector<int>,long> > sIndex_map;
     static vector<long> sNowIndex;
+    static QString sMapIndexFile;
 };
 
 #endif // KCALPMK_H
