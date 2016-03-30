@@ -97,6 +97,17 @@ KMakeLBP_SVMTable::KMakeLBP_SVMTable(QString parentDir, QString parentTestDir, Q
     }
     fsTest.close();
 
+//    KProgressBar progressBar("sssss",100000000,3);
+//    K_PROGRESS_START(progressBar);
+
+//    for(unsigned long i=0;i<100000000;i++){
+
+//        progressBar.autoUpdate();
+//        //qDebug()<<"still running...";
+//    }
+
+//    K_PROGRESS_END(progressBar);
+
 
     bool firstInstance = false;
     QString mapBinPath = m_sOutRoot + "!!mapIndex!!.bin";
@@ -231,7 +242,7 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
             primaryHist.save();
 
             // build the pyrimad
-            KCalPMK pmk(tempOut+"-histogram.bin",pyrimadName,beFirst);
+            KCalPMK pmk(tempOut+"-histogram.bin",pyrimadName,beFirst,100.0);
             // this save is related to the mapIndexFile
             pmk.savePtramid();
 
@@ -241,7 +252,7 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
 
         //qDebug()<<"size:"<<Pyramid.size();
         progressBar.autoUpdate();
-
+        //qDebug()<<"still running...";
     }
 
     K_PROGRESS_END(progressBar);
@@ -275,7 +286,7 @@ void KMakeLBP_SVMTable::makeTrainTable()
     QString mapFileOutPath = m_sOutRoot + "trainFileIndexMap.txt";;
     std::fstream fsMap(mapFileOutPath.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 
-    KProgressBar progressBar("BuildSimilarityTbl",m_vecPyramid.size()*m_vecPyramid.size(),80);
+    KProgressBar progressBar("BuildTrainSimilarityTbl",m_vecPyramid.size()*m_vecPyramid.size(),80);
     K_PROGRESS_START(progressBar);
 //qDebug()<<m_sOutput;
     long index=1;
@@ -314,6 +325,7 @@ void KMakeLBP_SVMTable::makeTrainTable()
         fs.flush();
         fsMap<<mapTemp.toStdString();
         fsMap.flush();
+        //qDebug()<<"still running...";
     }
     fs.close();
     fsMap.close();

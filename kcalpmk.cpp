@@ -274,7 +274,7 @@ void KCalPMK::buildPyramid()
 void KCalPMK::prepare()
 {
     calMinMax();
-    m_dDiameter = (m_dMax-m_dMin+1)*m_dScale;
+    m_dDiameter = m_dMax-m_dMin+1;
     //qDebug()<<m_dDiameter;
     m_iMaxLevel = boost::math::round(boost::math::log1p(m_dDiameter-1)/boost::math::log1p(1))+1;
     //qDebug()<<m_iMaxLevel;
@@ -286,9 +286,9 @@ void KCalPMK::prepare()
         boost::random::uniform_int_distribution<> dist(0, binSize);
         m_transTable[index].resize(m_iDims,0);
         for(int dimIndex = 0;dimIndex<m_iDims;++dimIndex){
-            //m_transTable[index][dimIndex] = dist(gen);
+            m_transTable[index][dimIndex] = dist(gen);
             // this trans don't work well
-            m_transTable[index][dimIndex] = 0;
+            //m_transTable[index][dimIndex] = 0;
             //qDebug()<<QString("level:%1").arg(index)<<m_transTable[index][dimIndex];
         }
     }

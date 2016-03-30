@@ -90,12 +90,13 @@ int main(int argc, char *argv[])
     //qDebug()<<"the input filepath"<<fileinput;
     //qDebug()<<"the output filepath"<<fileoutput;
     if(typeValue=="lbp"){
-
         bool beOverWrite = parser.isSet(beOverwriteCache);
         KMakeLBP_SVMTable svmTbl(TrainImages,TestImages,PredictOut,beOverWrite);
         svmTbl.makeTable();
         QString exePath=QCoreApplication::applicationDirPath()+"/windows/";
         QStringList args;
+        args.push_back("-t 4");
+        //args.push_back("4");//any one is ok!
         args.push_back(svmTbl.getTrainFile());
         args.push_back(svmTbl.getRootDir()+"model.bin");
         QProcess::execute(exePath+"svm-train.exe",args);

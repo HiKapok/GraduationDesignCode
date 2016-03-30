@@ -20,7 +20,7 @@
   */
 
 #define K_PROGRESS_START(progress) if(true != KProgressBar::sBeRunning){ progress.start(); }
-#define K_PROGRESS_END(progress) do { progress.finish(); while(progress.isRunning()); } while(0)
+#define K_PROGRESS_END(progress) do { progress.finish(); progress.locked = false; while(progress.isRunning()); } while(0)
 
 // the nested progressbar is hiden automatic
 class KProgressBar : public QThread
@@ -43,6 +43,7 @@ public:
     void autoUpdate(){ m_fNowPos = m_fNowPos + m_fUpdateFreq; m_iNowPos = m_fNowPos+.5; if(m_iNowPos > m_iTotalItems) m_iNowPos = m_iTotalItems; }
     void autoRun();
     inline void finish(){ if(Progress_Run==m_tRunning) m_iNowPos=m_iTotalItems; }
+    bool locked;
     static bool sBeRunning;
 private:
     static int m_siHisWidth;   

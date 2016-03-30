@@ -40,6 +40,7 @@ KProgressBar::KProgressBar(QString tip, unsigned long int totalSteps, int totalI
         //system(QString("mode con cols=%1 lines=%2").arg(cols).arg(cols*5/16).toUtf8().data());
         m_siHisWidth=cols;
     }
+    locked = true;
 }
 
 void KProgressBar::autoRun()
@@ -69,6 +70,8 @@ void KProgressBar::autoRun()
                 std::cout.flush();
             }
         }
+        //while((m_fNowPos + m_fUpdateFreq)<m_iTotalItems);
+        while(locked);
         sBeRunning = false;
     }
 }
