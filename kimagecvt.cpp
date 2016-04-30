@@ -178,7 +178,7 @@ GDALDataset * KImageCvt::colorReduce(GDALDataset *piDataset, GDALDataset *poData
 
 GDALDataset * KImageCvt::img2gray(GDALDataset *piDataset, GDALDataset *poDataset,QString name)
 {
-    if(KPicInfo::dataAttach(piDataset)) KPicInfo::getInstance()->build();
+    if(KPicInfo::dataAttach(piDataset,true)) KPicInfo::getInstance()->build();
     int bandNum = KPicInfo::getInstance()->getBandNum();
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();

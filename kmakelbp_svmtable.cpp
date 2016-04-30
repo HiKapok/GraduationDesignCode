@@ -3,6 +3,7 @@
 #include "gdal_priv.h"
 #include "cpl_conv.h" // for CPLMalloc()
 
+#include "kutility.h"
 #include "kprogressbar.h"
 #include "common.h"
 #include "kpicinfo.h"
@@ -25,13 +26,15 @@
 #include <iostream>
 #include <fstream>
 
+bool KMakeLBP_SVMTable::useImprovedLBP=false;
+
 KMakeLBP_SVMTable::KMakeLBP_SVMTable(map<QString,int> inputList, map<QString,int> inputTestList, QString output,bool overwriteFlag)
       :m_vecInput(inputList),
        m_vecTestInput(inputTestList)
        //m_sOutput(output)
 {
     //m_sOutput = output.left(output.lastIndexOf("."));
-    m_sOutRoot = getDirRoot(output);
+    m_sOutRoot = KUtility::getDirRoot(output);
     QString mapTrainFileOutPath = m_sOutRoot;
     QString mapTestFileOutPath = m_sOutRoot;
     mapTrainFileOutPath += "trainFileLabelMap.txt";
@@ -71,9 +74,10 @@ KMakeLBP_SVMTable::KMakeLBP_SVMTable(QString parentDir, QString parentTestDir, Q
     //:m_sOutput(output)
 {
     //m_sOutput = output.left(output.lastIndexOf("."));
-    buildInputList(m_vecInput,parentDir);
-    buildInputList(m_vecTestInput,parentTestDir);
-    m_sOutRoot = getDirRoot(output);
+    KUtility::buildInputList(m_vecInput,parentDir);
+    KUtility::buildInputList(m_vecTestInput,parentTestDir);
+    m_sOutRoot = KUtility::getDirRoot(output);
+
     QString mapTrainFileOutPath = m_sOutRoot;
     QString mapTestFileOutPath = m_sOutRoot;
     mapTrainFileOutPath += "trainFileLabelMap.txt";
@@ -126,59 +130,8 @@ void KMakeLBP_SVMTable::makeTable()
     makeTestTable();
 }
 
-QString KMakeLBP_SVMTable::getDirRoot(QString filename)
-{
-    QString tempRet("");
-    QRegularExpression re("[\\/\\\\//]");
-
-    if(filename.contains('\\')||filename.contains('/')){
-        QStringList tempList = filename.split(re);
-        for(int pos = 0;pos<tempList.length()-1;++pos)
-        {
-            tempRet+=tempList[pos];
-            tempRet+="/";
-        }
-    }else{
-        tempRet=QCoreApplication::applicationDirPath()+"/";
-    }
-    return tempRet;
-}
-
-void KMakeLBP_SVMTable::buildInputList(map<QString,int>& list,QString RootDir)
-{
-    QStack<QString> DirList;
-    QRegularExpression re("[\\/\\\\//]");
-    // ensure a directory
-    if(!checkDirName(RootDir)){ exit(1); }
-
-    DirList.push(RootDir);
-
-    while(!DirList.empty()){
-        QString tempDir = DirList.pop();
-
-        QDir temp(tempDir);
-        QString tempAbsDir = temp.absolutePath() + QDir::separator();
-        QStringList dirlist = temp.entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
-
-        if(!dirlist.empty()){
-            for(int index = 0;index<dirlist.length();++index){
-                if(!dirlist[index].contains("temp"))
-                    DirList.push(tempAbsDir + dirlist[index]);
-            }
-        }
-        if(RootDir==tempDir) continue;
-        QStringList tempList = tempAbsDir.split(re);
-        QStringList files = temp.entryList(QDir::Files);
-        int label = tempList[tempList.length()-2].toInt();
-        for(int index =0;index<files.length();++index){
-            list[tempAbsDir+files[index]]=label;
-        }
-    }
-}
-
 void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int>& Pyramid,bool &beFirst,bool beOverwrite)
 {
-
     GDALAllRegister();
 
     KPicInfo::beEcho=false;// close the echo char
@@ -194,7 +147,7 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
 
         K_OPEN_ASSERT(piDataset,(it->first).toStdString());
 
-        QString tempOut = getDirRoot(it->first)+"temp";
+        QString tempOut = KUtility::getDirRoot(it->first)+"temp";
         QDir tempDir(tempOut);
         if(!tempDir.exists()) tempDir.mkpath(tempOut);
         tempOut+=QDir::separator();
@@ -218,7 +171,7 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
 
             // Calculate LBP Features
             GDALDataset *poLBPDataset = NULL;
-            KFeatureLBP mLBPFeature16_2(poDataset,poLBPDataset,16,2);
+            KFeatureLBP mLBPFeature16_2(poDataset,poLBPDataset,16,2,useImprovedLBP);
             poLBPDataset = mLBPFeature16_2.build(tempOut+"-lbp16_2");
             if(NULL != poLBPDataset){ if(!mLBPFeature16_2.run()) std::cout<<"KMakeSVMTable:calculate LBP16_2 Feature failed!"<<std::endl; }
             else std::cout<<"KMakeSVMTable:LBP16_2 build failed!"<<std::endl;
@@ -226,7 +179,7 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
             progressBar.autoUpdate();
 
             poLBPDataset=NULL;
-            KFeatureLBP mLBPFeature8_1(poDataset,poLBPDataset,8,1);
+            KFeatureLBP mLBPFeature8_1(poDataset,poLBPDataset,8,1,useImprovedLBP);
             poLBPDataset = mLBPFeature8_1.build(tempOut+"-lbp8_1");
             if(NULL != poLBPDataset){ if(!mLBPFeature8_1.run()) std::cout<<"KMakeSVMTable:calculate LBP8_1 Feature failed!"<<std::endl; }
             else std::cout<<"KMakeSVMTable:LBP8_1 build failed!"<<std::endl;
@@ -247,6 +200,8 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
             pmk.savePtramid();
 
             beFirst = false;
+        }else{
+            progressBar.autoUpdate();
         }
         Pyramid[pyrimadName]=it->second;
 
@@ -259,26 +214,14 @@ void KMakeLBP_SVMTable::buildAllPyramid(map<QString,int> & lists,map<QString,int
     KPicInfo::beEcho=true;// trun on the echo char
 }
 
-bool KMakeLBP_SVMTable::checkDirName(QString &RootDir)
-{
-    if(RootDir == ""){
-        std::cout<<"KMakeSVMTable:an empty rootdir!"<<std::endl;
-        return false;
-    }
-    QDir dir(RootDir);
-
-    if(!dir.exists()){
-        std::cout<<"KMakeSVMTable:the rootdir doesn't exist!"<<std::endl;
-        return false;
-    }
-    RootDir = dir.absolutePath();
-
-    return true;
-}
-
 void KMakeLBP_SVMTable::makeTrainTable()
 {
     m_trainFileName = m_sOutRoot+"tbl-train.txt";
+
+    vector<double> tempSimiTbl;
+
+    unsigned long lSizePyramid=0;
+
     std::fstream fs(m_trainFileName.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 //    m_vecPyramid["sdsddd"]=5;
 //    m_vecPyramid["sdsgdeedgergd"]=4;
@@ -286,12 +229,15 @@ void KMakeLBP_SVMTable::makeTrainTable()
     QString mapFileOutPath = m_sOutRoot + "trainFileIndexMap.txt";;
     std::fstream fsMap(mapFileOutPath.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 
-    KProgressBar progressBar("BuildTrainSimilarityTbl",m_vecPyramid.size()*m_vecPyramid.size(),80);
+    lSizePyramid = m_vecPyramid.size();
+
+    KProgressBar progressBar("BuildTrainSimilarityTbl",lSizePyramid*lSizePyramid,80);
     K_PROGRESS_START(progressBar);
 //qDebug()<<m_sOutput;
     long index=1;
     long innerIndex=1;
     //QString tempLine("dddd");
+    tempSimiTbl.resize(lSizePyramid*lSizePyramid,-1.);
     for(map<QString,int>::iterator it = m_vecPyramid.begin();it != m_vecPyramid.end();++it,++index){
         // this way may arise overflow bugs, which cause data cannot be write to file but be printed to the screen!
 //        innerIndex=1;
@@ -314,9 +260,18 @@ void KMakeLBP_SVMTable::makeTrainTable()
         QString tempLine=QString("%1 0:%2").arg(it->second).arg(index);
         fs<<tempLine.toStdString();
         for(map<QString,int>::iterator itAnother = m_vecPyramid.begin();itAnother != m_vecPyramid.end();++itAnother,++innerIndex){
-            // do match
-            KPyrimadMatch match(it->first,itAnother->first);
-            double similarity = match.doMatch();
+            double similarity  = 0.;
+            // not calculate yet
+            if(tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1]<0.){
+                // do match
+                KPyrimadMatch match(it->first,itAnother->first);
+                similarity = match.doMatch();
+                tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1] = similarity;
+                tempSimiTbl[lSizePyramid*(innerIndex-1)+index-1] = similarity;
+            }else{
+                similarity = tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1];
+            }
+
             tempLine = QString(" %1:%2").arg(innerIndex).arg(similarity);
             fs<<tempLine.toStdString();
             progressBar.autoUpdate();
@@ -335,26 +290,41 @@ void KMakeLBP_SVMTable::makeTrainTable()
 void KMakeLBP_SVMTable::makeTestTable()
 {
     m_testFileName = m_sOutRoot+"tbl-test.txt";
+    vector<double> tempSimiTbl;
+
+    unsigned long lSizePyramid=0;
     std::fstream fs(m_testFileName.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 
     QString mapFileOutPath = m_sOutRoot + "testFileIndexMap.txt";;
     std::fstream fsMap(mapFileOutPath.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
 
+    lSizePyramid = m_vecPyramid.size();
     KProgressBar progressBar("BuildTestSimilarityTbl",m_vecTestPyramid.size()*m_vecPyramid.size(),80);
     K_PROGRESS_START(progressBar);
 
     long index=1;
     long innerIndex=1;
-
+    tempSimiTbl.resize(lSizePyramid*lSizePyramid,-1.);
     for(map<QString,int>::iterator it = m_vecTestPyramid.begin();it != m_vecTestPyramid.end();++it,++index){
         innerIndex=1;
         QString mapTemp=QString("index:%1\tfile:%2\n").arg(index,-6).arg(it->first);
         QString tempLine=QString("%1 0:%2").arg(it->second).arg(index);
         fs<<tempLine.toStdString();
         for(map<QString,int>::iterator itAnother = m_vecPyramid.begin();itAnother != m_vecPyramid.end();++itAnother,++innerIndex){
-            // do match
-            KPyrimadMatch match(it->first,itAnother->first);
-            double similarity = match.doMatch();
+            double similarity  = 0.;
+            // not calculate yet
+            if(tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1]<0.){
+                // do match
+                KPyrimadMatch match(it->first,itAnother->first);
+                similarity = match.doMatch();
+                tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1] = similarity;
+                tempSimiTbl[lSizePyramid*(innerIndex-1)+index-1] = similarity;
+            }else{
+                similarity = tempSimiTbl[lSizePyramid*(index-1)+innerIndex-1];
+            }
+//            // do match
+//            KPyrimadMatch match(it->first,itAnother->first);
+//            double similarity = match.doMatch();
             tempLine = QString(" %1:%2").arg(innerIndex).arg(similarity);
             fs<<tempLine.toStdString();
             progressBar.autoUpdate();

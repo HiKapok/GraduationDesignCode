@@ -21,6 +21,7 @@ public:
     QString getRootDir(){ return m_sOutRoot; }
     QString getTrainFile(){ return m_trainFileName; }
     QString getTestFile(){ return m_testFileName; }
+    static bool useImprovedLBP;
 private:
     map<QString,int> m_vecInput;
     map<QString,int> m_vecTestInput;
@@ -30,11 +31,8 @@ private:
     QString m_sOutRoot;
     QString m_trainFileName;
     QString m_testFileName;
-    QString getDirRoot(QString);
-    bool checkDirName(QString &);
     void makeTrainTable();
     void makeTestTable();
-    void buildInputList(map<QString,int>&,QString);
     void buildAllPyramid(map<QString,int> &,map<QString,int>&,bool &,bool=true);
 };
 

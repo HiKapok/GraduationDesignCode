@@ -18,7 +18,7 @@
 #include <QProcess>
 
 #include "kcalpmk.h"
-
+#include "ksvmcontroller.h"
 //#include <QRegularExpression>
 
 int main(int argc, char *argv[])
@@ -26,6 +26,11 @@ int main(int argc, char *argv[])
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("ImageClassfication-Test");
     QCoreApplication::setApplicationVersion("1.0");
+
+//     GDALAllRegister();
+//KTamura *lll = new KTamura("D:\\images\\building.jpg");
+//lll->build();
+//qDebug()<<lll->getSVMString();
 
     QCommandLineParser parser;
     parser.setApplicationDescription("ImageClassfication");
@@ -36,11 +41,14 @@ int main(int argc, char *argv[])
     parser.addPositionalArgument("TestImages",QObject::tr("\tthe parent directorypath of the test images folders"));
     parser.addPositionalArgument("PredictOut",QObject::tr("\tthe filepath of the predict output"));
 
-    QCommandLineOption textureType(QStringList()<<"t"<<"type",QObject::tr("the texture to be calculate"));
+    QCommandLineOption textureType(QStringList()<<"t"<<"type",QObject::tr("multi_texture can be calculate"),QObject::tr("the texture to be calculate"));
     parser.addOption(textureType);
 
     QCommandLineOption beOverwriteCache("o",QObject::tr("whether to overwrite the caches"));
     parser.addOption(beOverwriteCache);
+
+    QCommandLineOption calImprovedLBP("i",QObject::tr("whether to use improved-lbp feature"));
+    parser.addOption(calImprovedLBP);
 
     parser.process(app);
 
@@ -63,13 +71,11 @@ int main(int argc, char *argv[])
             TrainImages = argslist[0];
             TestImages = argslist[1];
             PredictOut = argslist[2];
-
         }else{
             TrainImages = argslist[0];
             TestImages = argslist[0]+"-test";
             PredictOut = argslist[1];
 //            const QStringList tempList = fileinput.split(".");
-
 //            fileoutput.clear();
 //            for(int index = 0;index < tempList.length() - 1;++index)
 //            {
@@ -85,12 +91,15 @@ int main(int argc, char *argv[])
         std::cout<<"you must give enough args"<<std::endl;
         exit( 1 );
     }
+
     QString typeValue("lbp");
     if(parser.isSet(textureType)) typeValue = parser.value(textureType);
+    //qDebug()<<typeValue;
     //qDebug()<<"the input filepath"<<fileinput;
     //qDebug()<<"the output filepath"<<fileoutput;
     if(typeValue=="lbp"){
         bool beOverWrite = parser.isSet(beOverwriteCache);
+        if(parser.isSet(calImprovedLBP)){ KMakeLBP_SVMTable::useImprovedLBP=true; }
         KMakeLBP_SVMTable svmTbl(TrainImages,TestImages,PredictOut,beOverWrite);
         svmTbl.makeTable();
         QString exePath=QCoreApplication::applicationDirPath()+"/windows/";
@@ -105,9 +114,28 @@ int main(int argc, char *argv[])
         args.push_back(svmTbl.getRootDir() + "model.bin");
         args.push_back(PredictOut);
         QProcess::execute(exePath+"svm-predict.exe",args);
-
     }else{
-        qDebug()<<"unknown feature type to use!";
+        if(typeValue=="slbp"){
+            if(parser.isSet(calImprovedLBP)){
+                KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_ImprovedLBP);
+                KSVMController.build();
+            }else{
+                KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_LBP);
+                KSVMController.build();
+            }
+        }else{
+            if(typeValue=="stamura"){
+                KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_Tamura);
+                KSVMController.build();
+            }else{
+                if(typeValue=="sgabor"){
+                    KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_Gabor);
+                    KSVMController.build();
+                }else{
+                    qDebug()<<"unknown feature type to use!";
+                }
+            }
+        }
     }
 //    GDALDataset *piDataset = NULL;
 //    GDALAllRegister();

@@ -2,6 +2,7 @@
 #include "kpicinfo.h"
 #include "common.h"
 
+#include "gdal_priv.h"
 #include "cpl_conv.h" // for CPLMalloc()
 
 #include <boost/dynamic_bitset.hpp>
@@ -11,6 +12,10 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QDebug>
+
+#include <map>
+#include <utility>
+#include <limits>
 
 // test the extend function
 //    KFeatureLBP *t= new KFeatureLBP();
@@ -33,14 +38,21 @@
 //    delete b;
 KFeatureLBP::~KFeatureLBP()
 {
+    CPLFree(m_pHistogram);
 
+    for(int bandIndex = 0;bandIndex<m_bandNum;++bandIndex){
+        //qDebug()<<m_extDataBuff[bandIndex];
+        CPLFree(m_extDataBuff[bandIndex]);
+    }
+    CPLFree(m_extDataBuff);
 }
 
-KFeatureLBP::KFeatureLBP(GDALDataset *piDataset, GDALDataset *poDataset, int sampleNum, int kernelRadius)
+KFeatureLBP::KFeatureLBP(GDALDataset *piDataset, GDALDataset *poDataset, int sampleNum, int kernelRadius, bool improved)
     : m_piDataset(piDataset),
       m_poDataset(poDataset),
       m_kernelRadius(kernelRadius),
       m_sampleNum(sampleNum),
+      m_beImproved(improved),
       m_fileName(""),
       refTable(NULL)
 {
@@ -54,6 +66,8 @@ bool KFeatureLBP::calLBP(float *inBuff, GByte *outBuff, int width, int height,bo
 
     boost::dynamic_bitset<> tempOne(m_sampleNum,1);
     boost::dynamic_bitset<> tempZero(m_sampleNum,0);
+
+    GUIntBig maxValue = get2Power(m_sampleNum);
 
     for(int iYPos = m_kernelRadius,iYDes=0;iYPos<height-m_kernelRadius;++iYPos,++iYDes)
     {
@@ -89,10 +103,17 @@ bool KFeatureLBP::calLBP(float *inBuff, GByte *outBuff, int width, int height,bo
                 tempbin |= tempValue>inBuff[iYPos*width+iXPos]?tempOne:tempZero;
             }
             if(NULL != pProgressBar) pProgressBar->autoUpdate();
-            if(toBeNormarlized==true)
-                outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=refTable[tempbin.to_ulong()]*256./(m_sampleNum+2.);
-            else
-                outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=refTable[tempbin.to_ulong()];
+            if(toBeNormarlized==false)
+            {
+                if(m_beImproved) outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=refTable[tempbin.to_ulong()];
+                else outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=tempbin.to_ulong()*255./maxValue;
+            }
+            else{
+                if(m_beImproved) outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=refTable[tempbin.to_ulong()]*255./(m_sampleNum+2.);
+                // here we suppose that the traditional lbp is normarlized anyway
+                else outBuff[iYDes*(width-2*m_kernelRadius)+iXDes]=tempbin.to_ulong()*255./maxValue;
+            }
+
 //            tempbin=tempZero;
 //            tempbin <<= 1;
 //            tempbin |= inBuff[iYPos*width+iXPos+1]>inBuff[iYPos*width+iXPos]?tempOne:tempZero;
@@ -123,84 +144,103 @@ bool KFeatureLBP::run(Kapok::K_BorderTypes type,bool toBeNormarlized)
     int nXSize = KPicInfo::getInstance()->getWidth();
     int nYSize = KPicInfo::getInstance()->getHeight();
 
-    GDALRasterBand * piBand = NULL;
+    //GDALRasterBand * piBand = NULL;
     GDALRasterBand * poBand = NULL;
-    float *pafData = NULL;
+    //float *pafData = NULL;
     GByte *pafOutData = NULL;
     int err_code = 1 + bandNum;
     if(externDataSet(type)) err_code -= 1;
 
-    // create the reference table
-    GUIntBig maxIndex = get2Power(m_sampleNum);
-    GUIntBig minValue = 0;
-    KProgressBar progressBar1("Calculating LBP refTable",maxIndex,80);
-    K_PROGRESS_START(progressBar1);
-    for(GUIntBig index = 0;index < maxIndex;++index)
-    {
-        // Achieving Rotation Invariance
-        minValue = index;
-        // leave the template args to be empty means determined by the compiler
-        boost::dynamic_bitset<> bin(m_sampleNum, index);
-        for(int pos = 0;pos<m_sampleNum;++pos){
-            boost::dynamic_bitset<> tempbin=(bin>>pos)|(bin<<m_sampleNum-pos);
-            if(minValue>tempbin.to_ulong()){
-                minValue = tempbin.to_ulong();
-            }
-        }
-        // confirm the "Uniform" Patterns
-        boost::dynamic_bitset<> temp(m_sampleNum,minValue);
-        GByte cycleSum = abs(temp[0] - temp[m_sampleNum - 1]);
-        // the default value is set to be the num of bits which are set
-        refTable[index] = bin.count();
-        for(GByte pos = 0;pos < m_sampleNum - 1;++pos)
+    if(m_beImproved){
+        // create the reference table
+        GUIntBig maxIndex = get2Power(m_sampleNum);
+        GUIntBig minValue = 0;
+        KProgressBar progressBar("Calculating LBP refTable",maxIndex,80);
+        K_PROGRESS_START(progressBar);
+        for(GUIntBig index = 0;index < maxIndex;++index)
         {
-            cycleSum += abs(temp[pos]-temp[pos+1]);
-            if(cycleSum > 2){
-                refTable[index] = m_sampleNum+1;
-                break;
+            // Achieving Rotation Invariance
+            minValue = index;
+            // leave the template args to be empty means determined by the compiler
+            boost::dynamic_bitset<> bin(m_sampleNum, index);
+            for(int pos = 0;pos<m_sampleNum;++pos){
+                boost::dynamic_bitset<> tempbin=(bin>>pos)|(bin<<m_sampleNum-pos);
+                if(minValue>tempbin.to_ulong()){
+                    minValue = tempbin.to_ulong();
+                }
             }
+            // confirm the "Uniform" Patterns
+            boost::dynamic_bitset<> temp(m_sampleNum,minValue);
+            GByte cycleSum = abs(temp[0] - temp[m_sampleNum - 1]);
+            // the default value is set to be the num of bits which are set
+            refTable[index] = bin.count();
+            for(GByte pos = 0;pos < m_sampleNum - 1;++pos)
+            {
+                cycleSum += abs(temp[pos]-temp[pos+1]);
+                if(cycleSum > 2){
+                    refTable[index] = m_sampleNum+1;
+                    break;
+                }
+            }
+            progressBar.autoUpdate();
         }
-        progressBar1.autoUpdate();
+        K_PROGRESS_END(progressBar);
     }
-    K_PROGRESS_END(progressBar1);
 
-    KProgressBar progressBar2("Calculating LBP feature",bandNum*nXSize*nYSize,80);
-    K_PROGRESS_START(progressBar2);
+    KProgressBar progressBar("Calculating LBP feature",bandNum*nXSize*nYSize,80);
+    K_PROGRESS_START(progressBar);
     // get the LBP feature
-    pafOutData = (GByte *) CPLMalloc(sizeof(float)*nXSize*nYSize);
-    pafData = (float *) CPLMalloc(sizeof(float)*(nXSize + 2*m_kernelRadius + 1)*(nYSize + 2*m_kernelRadius + 1));
+    pafOutData = (GByte *) CPLMalloc(sizeof(GByte)*nXSize*nYSize);
+    //pafData = (float *) CPLMalloc(sizeof(float)*(nXSize + 2*m_kernelRadius + 1)*(nYSize + 2*m_kernelRadius + 1));
     for(int index = 0; index < bandNum; ++index)
     {
-        piBand = m_piDataset->GetRasterBand(index + 1);
+        //piBand = m_piDataset->GetRasterBand(index + 1);
         poBand = m_poDataset->GetRasterBand(index + 1);
 
-        piBand->RasterIO( GF_Read, 0, 0, nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1
-                          , pafData, nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1
-                          , GDT_Float32, 0, 0 );
+//        piBand->RasterIO( GF_Read, 0, 0, nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1
+//                          , pafData, nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1
+//                          , GDT_Float32, 0, 0 );
 
-        if(calLBP(pafData,pafOutData,nXSize + 2*m_kernelRadius,nYSize + 2*m_kernelRadius,toBeNormarlized,&progressBar2)) err_code -= 1;
+        if(calLBP(m_extDataBuff[index],pafOutData,nXSize + 2*m_kernelRadius,nYSize + 2*m_kernelRadius,toBeNormarlized,&progressBar)) err_code -= 1;
 
         poBand->RasterIO( GF_Write, 0, 0, nXSize , nYSize, pafOutData
                           , nXSize, nYSize, GDT_Byte, 0, 0 );
         poBand->FlushCache();
 
     }
-    K_PROGRESS_END(progressBar2);
+    K_PROGRESS_END(progressBar);
 
     GDALClose(m_poDataset);
 
-    CPLFree(pafData);
-    CPLFree(pafOutData);
+    std::map<int,long> histMap;
+    int maxValue = (std::numeric_limits<int>::min)();
+
+    if(!m_beImproved || toBeNormarlized) maxValue=256;
+    else maxValue = m_sampleNum+2;
+
+    for(int index = 0;index<maxValue;++index) histMap[index]=0;
+    for(long index = 0;index<nXSize*nYSize;++index){ histMap[pafOutData[index]]++; }
+    m_pHistogram = (long *) CPLMalloc(sizeof(long)*maxValue+sizeof(long));
+    m_pHistogram[0]=maxValue;
+    // key start at 0
+    for(std::map<int,long>::iterator it = histMap.begin();it != histMap.end();++it){
+        m_pHistogram[it->first+1]=it->second;
+    }
 
     // release
-    char ** filelist =m_piDataset->GetFileList();
-    GDALClose(m_piDataset);
-    // just fetch the first one
-    QString temp(*filelist);
-    CSLDestroy (filelist);
-    QFile file(temp);
-    if(!file.remove()) std::cout<<"KFeatureLBP:remove the temp file failed!"<<std::endl;
     if(NULL != refTable) CPLFree(refTable);
+    //CPLFree(pafData);
+    CPLFree(pafOutData);
+//    char ** filelist;// =m_piDataset->GetFileList();
+//    GDALClose(m_piDataset);
+
+//    // just fetch the first one
+//    QString temp(*filelist);
+//    CSLDestroy (filelist);
+//    QFile file(temp);
+//    if(!file.remove()) std::cout<<"KFeatureLBP:remove the temp file failed!"<<std::endl;
+//    //qDebug()<<"close";
+
 
     return (0 == err_code);
 }
@@ -223,7 +263,7 @@ GDALDataset *KFeatureLBP::build(QString fileName)
 
     if(!beSame){
         QString tempName=QCoreApplication::applicationDirPath()+"/tempImg%%KFeatureLBP";
-        QString tempInputName=QCoreApplication::applicationDirPath()+"/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
+        //QString tempInputName=QCoreApplication::applicationDirPath()+"/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
         //QString tempName="D:/tempImg%%KFeatureLBP";
         //QString tempInputName="D:/tempExtImg%%KFeatureLBP"+KPicInfo::getInstance()->getFileExtName();
         if(!m_fileName.isEmpty()){ tempName = m_fileName; }
@@ -251,13 +291,18 @@ GDALDataset *KFeatureLBP::build(QString fileName)
         m_poDataset = poDriver->Create(tempName.toUtf8().data(),nXSize,nYSize
                                        ,bandNum,GDT_Byte,0);
         // store the previous handle
-        m_piOrgDataset = m_piDataset;
+        //m_piOrgDataset = m_piDataset;
         // +1 is to guarantee the success of bilinear interpolation algorithm
         // build the new handle to store the extended image
         //qDebug()<<"failed";qDebug()<<KPicInfo::getInstance()->getType();
-        m_piDataset = poDriver->Create(tempInputName.toUtf8().data()
-                                       ,nXSize+2*m_kernelRadius + 1,nYSize+2*m_kernelRadius + 1
-                                       ,bandNum,KPicInfo::getInstance()->getType(),0);
+        m_extDataBuff = (float **) CPLMalloc(sizeof(float *)*bandNum);
+        m_bandNum = bandNum;
+        for(int bandIndex = 0;bandIndex<bandNum;++bandIndex){
+            m_extDataBuff[bandIndex] = (float *) CPLMalloc(sizeof(float)*(nXSize+2*m_kernelRadius + 1)*(nYSize+2*m_kernelRadius + 1));
+        }
+//        m_piDataset = poDriver->Create(tempInputName.toUtf8().data()
+//                                       ,nXSize+2*m_kernelRadius + 1,nYSize+2*m_kernelRadius + 1
+//                                       ,bandNum,KPicInfo::getInstance()->getType(),0);
 
     }else{
         std::cout<<"KFeatureLBP:the input and output cannot be same!"<<std::endl;
@@ -267,7 +312,8 @@ GDALDataset *KFeatureLBP::build(QString fileName)
     assert(NULL != m_poDataset);
 
     if(NULL != refTable) CPLFree(refTable);
-    refTable = (unsigned char *) CPLMalloc(sizeof(unsigned char)*get2Power(m_sampleNum));
+    if(m_beImproved) refTable = (unsigned char *) CPLMalloc(sizeof(unsigned char)*get2Power(m_sampleNum));
+    else refTable=NULL;
 
     return m_poDataset;
 }
@@ -502,38 +548,54 @@ bool KFeatureLBP::externDataSet(Kapok::K_BorderTypes type,float defaultValue)
     int nYSize = KPicInfo::getInstance()->getHeight();
     unsigned int err = bandNum;
     GDALRasterBand * piBand = NULL;
-    GDALRasterBand * poBand = NULL;
+    //GDALRasterBand * poBand = NULL;
     float *pafData = NULL;
-    float *pafOutData = NULL;
+    //float *pafOutData = NULL;
     pafData = (float *) CPLMalloc(sizeof(float)*nXSize*nYSize);
-    pafOutData = (float *) CPLMalloc(sizeof(float)*(nXSize + 2*m_kernelRadius + 1)*(nYSize + 2*m_kernelRadius + 1));
+    //pafOutData = (float *) CPLMalloc(sizeof(float)*(nXSize + 2*m_kernelRadius + 1)*(nYSize + 2*m_kernelRadius + 1));
     for(int index = 0; index < bandNum; ++index)
     {
-        piBand = m_piOrgDataset->GetRasterBand(index + 1);
-        poBand = m_piDataset->GetRasterBand(index + 1);
+        piBand = m_piDataset->GetRasterBand(index + 1);
+        //poBand = m_piDataset->GetRasterBand(index + 1);
 
         piBand->RasterIO( GF_Read, 0, 0, nXSize, nYSize, pafData, nXSize, nYSize, GDT_Float32, 0, 0 );
         switch(type)
         {
         case Kapok::Border_Constant:
-            err -= constExtend(pafData, pafOutData, nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius, defaultValue);
+            err -= constExtend(pafData, m_extDataBuff[index], nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius, defaultValue);
             break;
         case Kapok::Border_Replicate:
-            err -= replicateExtend(pafData, pafOutData, nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius);
+            err -= replicateExtend(pafData, m_extDataBuff[index], nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius);
             break;
         case Kapok::Border_Reflect:
         default:
-            err -= reflectExtend(pafData, pafOutData, nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius);
+            err -= reflectExtend(pafData, m_extDataBuff[index], nXSize + 2*m_kernelRadius, nYSize + 2*m_kernelRadius);
             break;
         }
 
-        poBand->RasterIO( GF_Write, 0, 0, nXSize + 2*m_kernelRadius + 1
-                          , nYSize + 2*m_kernelRadius + 1, pafOutData
-                          , nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1, GDT_Float32, 0, 0 );
-        poBand->FlushCache();
+//        poBand->RasterIO( GF_Write, 0, 0, nXSize + 2*m_kernelRadius + 1
+//                          , nYSize + 2*m_kernelRadius + 1, pafOutData
+//                          , nXSize + 2*m_kernelRadius + 1, nYSize + 2*m_kernelRadius + 1, GDT_Float32, 0, 0 );
+//        poBand->FlushCache();
     }
     CPLFree(pafData);
-    CPLFree(pafOutData);
+    //CPLFree(pafOutData);
 
     return !err;
+}
+
+QString KFeatureLBP::getSVMString(int start)
+{
+    int size = m_pHistogram[0];
+    QString temp("");
+    if(NULL==m_pHistogram) exit(1);
+//    for(int index= start;index<start+size;++index){
+//        temp+=QString("%1:%%2 ").arg(index).arg(index-start+1);
+//    }
+    for(int index = 1;index<size+1;++index){
+        temp+=QString("%1:%2 ").arg(index-1+start).arg(m_pHistogram[index]);
+        //temp=QString(temp).arg(m_pHistogram[index]);
+        //qDebug()<<temp;
+    }
+    return temp;
 }

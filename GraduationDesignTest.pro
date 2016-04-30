@@ -25,7 +25,10 @@ SOURCES += main.cpp \
     kcalpmk.cpp \
     kbuildhistogram.cpp \
     kpyrimadmatch.cpp \
-    kmakelbp_svmtable.cpp
+    kmakelbp_svmtable.cpp \
+    ktamura.cpp \
+    ksvmcontroller.cpp \
+    kutility.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -241,4 +244,7 @@ HEADERS += \
     kcalpmk.h \
     kbuildhistogram.h \
     kpyrimadmatch.h \
-    kmakelbp_svmtable.h
+    kmakelbp_svmtable.h \
+    ktamura.h \
+    ksvmcontroller.h \
+    kutility.h

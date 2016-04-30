@@ -286,9 +286,9 @@ void KCalPMK::prepare()
         boost::random::uniform_int_distribution<> dist(0, binSize);
         m_transTable[index].resize(m_iDims,0);
         for(int dimIndex = 0;dimIndex<m_iDims;++dimIndex){
-            m_transTable[index][dimIndex] = dist(gen);
+            //m_transTable[index][dimIndex] = dist(gen);
             // this trans don't work well
-            //m_transTable[index][dimIndex] = 0;
+            m_transTable[index][dimIndex] = 0;
             //qDebug()<<QString("level:%1").arg(index)<<m_transTable[index][dimIndex];
         }
     }
