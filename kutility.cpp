@@ -4,6 +4,7 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <QStack>
+#include <vector>
 #include <QDebug>
 #include <QCoreApplication>
 
@@ -11,6 +12,15 @@
 
 using std::map;
 using std::cout;
+
+long KUtility::getRegionIndex(long temp)
+{
+    //static std::vector<long> vecIDBuff;
+    static long count = 0;
+    if(temp>0) count=temp;
+    else return count++;
+    return count;
+}
 
 QString KUtility::getDirRoot(QString filename)
 {

@@ -16,6 +16,7 @@ private:
     void operator delete(void*);
     void operator delete[](void*);
 public:
+    static long getRegionIndex(long=-1);
     static QString getDirRoot(QString);
     static bool checkDirName(QString &);
     static void buildInputList(std::map<QString,int>&,QString);

@@ -28,7 +28,9 @@ SOURCES += main.cpp \
     kmakelbp_svmtable.cpp \
     ktamura.cpp \
     ksvmcontroller.cpp \
-    kutility.cpp
+    kutility.cpp \
+    kregion.cpp \
+    kmultisplit.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -247,4 +249,6 @@ HEADERS += \
     kmakelbp_svmtable.h \
     ktamura.h \
     ksvmcontroller.h \
-    kutility.h
+    kutility.h \
+    kregion.h \
+    kmultisplit.h
