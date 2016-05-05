@@ -6,6 +6,7 @@
 #include "kpicinfo.h"
 #include "kfeaturelbp.h"
 #include "ksplitimage.h"
+#include "kmultisplit.h"
 
 #include "kmakelbp_svmtable.h"
 
@@ -132,7 +133,16 @@ int main(int argc, char *argv[])
                     KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_Gabor);
                     KSVMController.build();
                 }else{
-                    qDebug()<<"unknown feature type to use!";
+                    if(typeValue=="sglcm"){
+
+                    }else{
+                        if(typeValue=="split"){
+                            // input image, output image, label output path
+                            KMultiSplit ksplit(TrainImages,TestImages,PredictOut);
+                            ksplit.quickSplit(10.);
+                            ksplit.runMultiSplit(200,20200,1.235);//1.023
+                        }else qDebug()<<"unknown feature type to use!";
+                    }
                 }
             }
         }

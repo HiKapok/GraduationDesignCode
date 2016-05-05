@@ -11,9 +11,9 @@ QT       -= gui
 TARGET = GraduationDesignTest
 CONFIG   += console
 CONFIG   -= app_bundle
+CONFIG   += c++11
 
 TEMPLATE = app
-
 
 SOURCES += main.cpp \
     kimagecvt.cpp \
@@ -251,4 +251,5 @@ HEADERS += \
     ksvmcontroller.h \
     kutility.h \
     kregion.h \
-    kmultisplit.h
+    kmultisplit.h \
+    kwaitbar.h

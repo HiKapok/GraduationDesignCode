@@ -59,6 +59,9 @@ public:
     bool operator==(const KRegion &rhs) const{
         return this->m_id==rhs.m_id;
     }
+    bool operator==(const long &rhs) const{
+        return this->m_id==rhs;
+    }
     bool operator<(const KRegion &rhs) const{
         return this->m_id<rhs.m_id;
     }
