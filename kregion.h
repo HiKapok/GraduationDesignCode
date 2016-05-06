@@ -2,6 +2,7 @@
 #define KREGION_H
 
 #include <list>
+#include <boost/functional/hash.hpp>
 
 using std::list;
 
@@ -65,6 +66,8 @@ public:
     bool operator<(const KRegion &rhs) const{
         return this->m_id<rhs.m_id;
     }
+
+
     KRegion(const KRegion &rhs){
         this->m_id = rhs.m_id;
         this->m_regLists = rhs.m_regLists;
@@ -78,7 +81,7 @@ public:
     int getMaxLine();
     bool isSinglePixel();
     int totalPixels();
-    long getID(){ return m_id; }
+    inline long getID() const{ return m_id; }
     bool hasPoint(int,int);
     void pushLine(KSLE& sle){ m_regLists.push_back(sle); }
     void rmLine(KSLE& sle){ m_regLists.remove(sle); }
@@ -87,6 +90,22 @@ private:
     KRegion();
     long m_id;
     list<KSLE> m_regLists;
+};
+
+struct KRegionHasher
+{
+    std::size_t operator()(const KRegion& k) const
+    {
+        return boost::hash<long>()(k.getID());
+    }
+};
+
+struct KRegionCompare
+{
+    bool operator()(const KRegion& lhs, const KRegion& rhs) const
+    {
+        return (lhs==rhs);
+    }
 };
 
 #endif // KREGION_H

@@ -57,8 +57,8 @@ public:
                     {
                         std::cout << " ";
                     }
-                    if (m_tRunning == WaitBar_Finish){ std::cout << "(Finished)" << std::endl; break; }
-                    else if (m_tRunning == WaitBar_Cancel){ std::cout << "(Canceled)" << std::endl; break; }
+                    if (m_tRunning == WaitBar_Finish){ std::cout << "[Finished]" << std::endl; break; }
+                    else if (m_tRunning == WaitBar_Cancel){ std::cout << "[Canceled]" << std::endl; break; }
                     std::cout << "\r";
                     std::cout.flush();
                     //this->sleep(1);

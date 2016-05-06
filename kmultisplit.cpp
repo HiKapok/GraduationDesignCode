@@ -2,7 +2,10 @@
 
 #include "common.h"
 
+//#define TIXML_USE_STL
+
 #include "cpl_conv.h" // for CPLMalloc()
+#include "tinyxml.h"
 
 #include "kutility.h"
 #include "kprogressbar.h"
@@ -27,6 +30,7 @@ KMultiSplit::~KMultiSplit()
     }
     CPLFree(m_orgImgBuff);
     CPLFree(labels);
+    CPLFree(m_adfMinMax);
 }
 
 KMultiSplit::KMultiSplit(QString input, QString output, QString labelOut, KMultiSplit::K_OutTypes type):
@@ -88,12 +92,20 @@ KMultiSplit::KMultiSplit(QString input, QString output, QString labelOut, KMulti
         m_extName = ".tif";
     }
 
+    m_adfMinMax = (float *) CPLMalloc(sizeof(float)*2*m_nBand);
+    GDALRasterBand * tempBand = NULL;
+    int tempSuccess;
+    for(int index = 0;index<m_nBand;++index){
+        tempBand = piDataset->GetRasterBand( index+1 );
+        m_adfMinMax[2*index] = tempBand->GetMinimum( &tempSuccess );
+        m_adfMinMax[2*index+1] = tempBand->GetMaximum( &tempSuccess );
+    }
     GDALClose(piDataset);
 }
 
 void KMultiSplit::quickSplit(float splitThres)
 {
-    std::vector<KRegion> tempRegionVec;
+    std::unordered_map<long,KRegion> tempRegioMap;
     KProgressBar progressBar("QuickSplit",m_iYSize*m_iXSize,80);
     K_PROGRESS_START(progressBar);
 
@@ -104,15 +116,15 @@ void KMultiSplit::quickSplit(float splitThres)
             long curID = iY*m_iXSize+iX;
             long leftID = -1;
             long upID = -1;
-            std::vector<KRegion>::iterator leftIt = tempRegionVec.end();
-            std::vector<KRegion>::iterator upIt = tempRegionVec.end();
+            std::unordered_map<long,KRegion>::iterator leftIt = tempRegioMap.end();
+            std::unordered_map<long,KRegion>::iterator upIt = tempRegioMap.end();
             if(iY>0){
                 upID = labels[(iY-1)*m_iXSize+iX];
-                upIt = std::find(tempRegionVec.begin(),tempRegionVec.end(),upID);
+                upIt = tempRegioMap.find(upID);
             }
             if(iX>0){
                 leftID = labels[curID-1];
-                leftIt = std::find(tempRegionVec.begin(),tempRegionVec.end(),leftID);
+                leftIt = tempRegioMap.find(leftID);
             }
 
             KRegion reg(curID);
@@ -120,76 +132,76 @@ void KMultiSplit::quickSplit(float splitThres)
             // left and up are the same region
 
             if(leftID == upID){
-                if(-1 == leftID || getQuickColorDiff(*upIt,reg)>splitThres){
+                if(-1 == leftID || getQuickColorDiff(upIt->second,reg)>splitThres){
                     labels[curID]=curID;
-                    tempRegionVec.push_back(reg);
+                    tempRegioMap.insert(std::make_pair(curID,reg));
                 }else{
-                    *upIt += reg;
+                    upIt->second += reg;
                     labels[curID]=upID;
                 }
             }else{
                 float leftDiff = 0.;
                 float upDiff = 0.;
                 if(leftID != -1 && upID != -1){
-                    leftDiff = getQuickColorDiff(reg,*leftIt);
-                    upDiff = getQuickColorDiff(*upIt,reg);
+                    leftDiff = getQuickColorDiff(reg,leftIt->second);
+                    upDiff = getQuickColorDiff(upIt->second,reg);
                     if(leftDiff>splitThres&&upDiff>splitThres){
                         labels[curID]=curID;
-                        tempRegionVec.push_back(reg);
+                        tempRegioMap.insert(std::make_pair(curID,reg));
                     }else{
                         if(leftDiff<=splitThres&&upDiff<=splitThres){
                             if(leftDiff>upDiff){
-                                *upIt += reg;
+                                upIt->second += reg;
                                 labels[curID]=upID;
                             }else{
                                 if(leftDiff<upDiff){
-                                    *leftIt += reg;
+                                    leftIt->second += reg;
                                     labels[curID]=leftID;
                                 }else{
-                                    if(getQuickColorDiff(*upIt,*leftIt)<=splitThres){
-                                        *upIt += *leftIt;
-                                        *upIt += reg;
+                                    if(getQuickColorDiff(upIt->second,leftIt->second)<=splitThres){
+                                        upIt->second += leftIt->second;
+                                        upIt->second += reg;
                                         labels[curID]=upID;
-                                        tempRegionVec.erase(leftIt);
+                                        tempRegioMap.erase(leftIt);
                                         for(int tempIndex=0;tempIndex<curID;++tempIndex){
                                             if(labels[tempIndex]==leftID){
                                                 labels[tempIndex]=upID;
                                             }
                                         }
                                     }else{
-                                        *upIt += reg;
+                                        upIt->second += reg;
                                         labels[curID]=upID;
                                     }
                                 }
                             }
                         }else{
                             if(leftDiff<=splitThres){
-                                *leftIt += reg;
+                                leftIt->second += reg;
                                 labels[curID]=leftID;
                             }else{
-                                *upIt += reg;
+                                upIt->second += reg;
                                 labels[curID]=upID;
                             }
                         }
                     }
                 }else if(upID == -1){
                     //qDebug()<<leftID<<upID;
-                    leftDiff = getQuickColorDiff(reg,*leftIt);
+                    leftDiff = getQuickColorDiff(reg,leftIt->second);
                     if(leftDiff<=splitThres){
-                        *leftIt += reg;
+                        leftIt->second += reg;
                         labels[curID]=leftID;
                     }else{
                         labels[curID]=curID;
-                        tempRegionVec.push_back(reg);
+                        tempRegioMap.insert(std::make_pair(curID,reg));
                     }
                 }else{
-                    upDiff = getQuickColorDiff(*upIt,reg);
+                    upDiff = getQuickColorDiff(upIt->second,reg);
                     if(upDiff<=splitThres){
-                        *upIt += reg;
+                        upIt->second += reg;
                         labels[curID]=upID;
                     }else{
                         labels[curID]=curID;
-                        tempRegionVec.push_back(reg);
+                        tempRegioMap.insert(std::make_pair(curID,reg));
                     }
                 }
             }// end of not same region merge
@@ -200,13 +212,14 @@ void KMultiSplit::quickSplit(float splitThres)
 //            }
             progressBar.autoUpdate();
         }
+
         // new: move some finished region to another vector
         // old: move some region to RAG
-        for(std::vector<KRegion>::iterator it = tempRegionVec.begin();it != tempRegionVec.end();){
-            if(it->getMaxLine()<iY && !(it->isSinglePixel())){
+        for(std::unordered_map<long,KRegion>::iterator it = tempRegioMap.begin();it != tempRegioMap.end();){
+            if((it->second).getMaxLine()<iY && !((it->second).isSinglePixel())){
                 // just copy to avoid invalid iterator
-                m_vecRegion.push_back(*it);
-                it = tempRegionVec.erase(it);
+                m_mapRegion.insert(*it);
+                it = tempRegioMap.erase(it);
             }else{
                 ++it;
             }
@@ -219,15 +232,15 @@ void KMultiSplit::quickSplit(float splitThres)
 
     K_PROGRESS_END(progressBar);
     // move all region to the finish vector
-    for(std::vector<KRegion>::iterator it = tempRegionVec.begin();it != tempRegionVec.end();++it){
-        m_vecRegion.push_back(*it);
+    for(std::unordered_map<long,KRegion>::iterator it = tempRegioMap.begin();it != tempRegioMap.end();++it){
+        m_mapRegion.insert(*it);
     }
     // merge single item
     KWaitBar waitBar("MergeSingle",4,20);
     K_WAITBAR_START(waitBar);
-    for(std::vector<KRegion>::iterator it = m_vecRegion.begin();it != m_vecRegion.end();){
-        if(it->isSinglePixel()){
-            list<KSLE>::const_iterator its = (it->getLists()).begin();
+    for(std::unordered_map<long,KRegion>::iterator it = m_mapRegion.begin();it != m_mapRegion.end();){
+        if((it->second).isSinglePixel()){
+            list<KSLE>::const_iterator its = ((it->second).getLists()).begin();
             int lines = its->getLine();
             int cols = its->getStartCol();
             long leftID = -1;
@@ -238,7 +251,7 @@ void KMultiSplit::quickSplit(float splitThres)
             float rightDiff = (std::numeric_limits<float>::max)();
             float upDiff = (std::numeric_limits<float>::max)();
             float downDiff = (std::numeric_limits<float>::max)();
-            std::vector<KRegion>::iterator minDiffIt = m_vecRegion.begin();
+            std::unordered_map<long,KRegion>::iterator minDiffIt = m_mapRegion.begin();
             float minDiff = (std::numeric_limits<float>::max)();
             if(cols>0){
                 leftID = labels[lines*m_iXSize+cols-1];
@@ -253,40 +266,40 @@ void KMultiSplit::quickSplit(float splitThres)
                 downID = labels[(lines+1)*m_iXSize+cols];
             }
             if(leftID != -1){
-                std::vector<KRegion>::iterator itTemp = std::find(m_vecRegion.begin(),m_vecRegion.end(),leftID);
-                leftDiff=getQuickColorDiff(*itTemp,*it);
+                std::unordered_map<long,KRegion>::iterator itTemp = m_mapRegion.find(leftID);
+                leftDiff=getQuickColorDiff(itTemp->second,it->second);
                 if(minDiff>leftDiff){
                     minDiff=leftDiff;
                     minDiffIt=itTemp;
                 }
             }
             if(rightID != -1){
-                std::vector<KRegion>::iterator itTemp = std::find(m_vecRegion.begin(),m_vecRegion.end(),rightID);
-                rightDiff=getQuickColorDiff(*itTemp,*it);
+                std::unordered_map<long,KRegion>::iterator itTemp = m_mapRegion.find(rightID);
+                rightDiff=getQuickColorDiff(itTemp->second,it->second);
                 if(minDiff>rightDiff){
                     minDiff=rightDiff;
                     minDiffIt=itTemp;
                 }
             }
             if(upID != -1){
-                std::vector<KRegion>::iterator itTemp = std::find(m_vecRegion.begin(),m_vecRegion.end(),upID);
-                upDiff=getQuickColorDiff(*itTemp,*it);
+                std::unordered_map<long,KRegion>::iterator itTemp = m_mapRegion.find(upID);
+                upDiff=getQuickColorDiff(itTemp->second,it->second);
                 if(minDiff>upDiff){
                     minDiff=upDiff;
                     minDiffIt=itTemp;
                 }
             }
             if(downID != -1){
-                std::vector<KRegion>::iterator itTemp = std::find(m_vecRegion.begin(),m_vecRegion.end(),downID);
-                downDiff=getQuickColorDiff(*itTemp,*it);
+                std::unordered_map<long,KRegion>::iterator itTemp = m_mapRegion.find(downID);
+                downDiff=getQuickColorDiff(itTemp->second,it->second);
                 if(minDiff>downDiff){
                     minDiff=downDiff;
                     minDiffIt=itTemp;
                 }
             }
-            (*minDiffIt)+=(*it);
-            labels[lines*m_iXSize+cols]=minDiffIt->getID();
-            it = m_vecRegion.erase(it);
+            (minDiffIt->second)+=(it->second);
+            labels[lines*m_iXSize+cols]=(minDiffIt->second).getID();
+            it = m_mapRegion.erase(it);
         }else{
             ++it;
         }
@@ -350,17 +363,111 @@ float KMultiSplit::getQuickColorDiff(KRegion &lhs, KRegion &rhs)
 void KMultiSplit::saveSplit(QString level)
 {
     if(OutPic == m_tTypeOut){
+        float **tempImgBuff;
+        tempImgBuff = (float **) CPLMalloc(sizeof(float *)*m_nBand);
+        for(int index = 0;index<m_nBand;++index){
+            tempImgBuff[index]=(float *) CPLMalloc(sizeof(float)*m_iXSize*m_iYSize);
+        }
         QString tempName = m_sOutPut+"-"+level+m_extName;
+        for(int index = 0;index<m_nBand;++index){
+            memcpy(tempImgBuff[index],m_orgImgBuff[index],sizeof(float)*m_iXSize*m_iYSize);
+        }
+        for(int iY = 0;iY<m_iYSize;++iY){
+            for(int iX = 0;iX<m_iXSize;++iX){
+                int tempIndex = iY*m_iXSize+iX;
+                long curID = labels[tempIndex];
+                long upID = curID;
+                long leftID = curID;
+                if(iX>0){
+                    leftID = labels[tempIndex-1];
+                }
+                if(iY>0){
+                    upID = labels[(iY-1)*m_iXSize+iX];
+                }
+                if(upID!=curID || curID!=leftID){
+                    if(m_nBand==1){
+                        tempImgBuff[0][tempIndex]=0.;
+                    }else{
+                        tempImgBuff[0][tempIndex]=0.;
+                        tempImgBuff[1][tempIndex]=255.;
+                        tempImgBuff[2][tempIndex]=0.;
+                    }
+                }else{
+                    if(m_nBand==1){
+                        tempImgBuff[0][tempIndex]=tempImgBuff[0][tempIndex]*255./(m_adfMinMax[1]-m_adfMinMax[0]);
+                    }else{
+                        tempImgBuff[0][tempIndex]=tempImgBuff[0][tempIndex]*255./(m_adfMinMax[1]-m_adfMinMax[0]);
+                        tempImgBuff[1][tempIndex]=tempImgBuff[1][tempIndex]*255./(m_adfMinMax[3]-m_adfMinMax[2]);
+                        tempImgBuff[2][tempIndex]=tempImgBuff[2][tempIndex]*255./(m_adfMinMax[5]-m_adfMinMax[4]);
+                    }
+                }
+            }
+        }
+        GDALDataset * poutDataset = m_poDriver->Create(tempName.toUtf8().data(),m_iXSize,m_iYSize,3,GDT_Byte,0);
+        for(int bandIndex = 0;bandIndex<m_nBand;++bandIndex){
+            GDALRasterBand * poutBand = poutDataset->GetRasterBand(bandIndex+1);
+            poutBand->RasterIO( GF_Write, 0, 0, m_iXSize,m_iYSize, tempImgBuff[bandIndex], m_iXSize,m_iYSize, GDT_Float32, 0, 0 );
+            poutBand->FlushCache();
+            poutDataset->FlushCache();
+            CPLFree(tempImgBuff[bandIndex]);
+        }
+        GDALClose(poutDataset);
+        CPLFree(tempImgBuff);
+
+
     }else{
         QString tempName = m_sOutPut+"-"+level+".xml";
+        TiXmlDocument doc;
+
+        TiXmlDeclaration* decl = new TiXmlDeclaration( "1.0", "", "" );
+        doc.LinkEndChild(decl);
+
+        TiXmlElement * root = new TiXmlElement( "RegionList" );
+        doc.LinkEndChild(root);
+
+        TiXmlComment * comment = new TiXmlComment();
+        QString temp = " The RegionList of file: "+m_sInput+" ";
+        //qDebug()<<temp;
+        comment->SetValue( temp.toUtf8().constData() );
+
+        root->LinkEndChild(comment);
+
+        TiXmlElement * regionDescription = new TiXmlElement("RegionDescription");
+        root->LinkEndChild(regionDescription);
+        int totalNum = boost::num_vertices(m_RAG);
+        regionDescription->SetAttribute("total",totalNum);
+
+        TiXmlElement * region;
+
+        vertexIterator vi, vi_end;
+        indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+        boost::tie(vi,vi_end) = boost::vertices(m_RAG);
+        std::vector<std::tuple<int,int>> tempVec;
+        for(;vi!=vi_end;++vi){
+            int idTemp = tempIndexMap[*vi];
+            float height=0.;
+            float width=0.;
+            std::unordered_map<long,KRegion>::iterator it = m_mapRegion.find(static_cast<long>(idTemp));
+            region = new TiXmlElement("Region");
+            regionDescription->LinkEndChild(region);
+            region->SetAttribute("name", "default");
+            region->SetAttribute("id", idTemp);
+            std::tie(height,width)=getMinArea(it->second,tempVec);
+            region->SetDoubleAttribute("height", height);
+            region->SetDoubleAttribute("width", width); // floating point attrib
+        }
+
+//drawSquare(tempVec);
+        doc.SaveFile(tempName.toUtf8().constData());
     }
     // save label array
     float * tempLabel=(float *) CPLMalloc(sizeof(float)*m_iXSize*m_iYSize);
     for(int index = 0;index<m_iXSize*m_iYSize;++index){
         tempLabel[index] = labels[index];
     }
+    GDALDriver *tempDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
     QString labelName = m_sOutPutLabel+"-"+level+m_extName;
-    GDALDataset * poDataset = m_poDriver->Create(labelName.toUtf8().data(),m_iXSize,m_iYSize,1,GDT_Int32,0);
+    GDALDataset * poDataset = tempDriver->Create(labelName.toUtf8().data(),m_iXSize,m_iYSize,1,GDT_Int32,0);
     GDALRasterBand * poBand = poDataset->GetRasterBand(1);
     poBand->RasterIO( GF_Write, 0, 0, m_iXSize,m_iYSize, tempLabel, m_iXSize,m_iYSize, GDT_Float32, 0, 0 );
     poBand->FlushCache();
@@ -373,12 +480,12 @@ void KMultiSplit::buildRAG()
 {
     int * tempValid=(int *) CPLMalloc(sizeof(int)*m_iXSize*m_iYSize);
     memset(tempValid,1,m_iXSize*m_iYSize*sizeof(int));
-    KProgressBar progressBar("buildRAG",m_vecRegion.size()*2,80);
+    KProgressBar progressBar("buildRAG",m_mapRegion.size()*2,80);
     K_PROGRESS_START(progressBar);
-    for(std::vector<KRegion>::iterator it = m_vecRegion.begin();it != m_vecRegion.end();++it){
+    for(std::unordered_map<long,KRegion>::iterator it = m_mapRegion.begin();it != m_mapRegion.end();++it){
         std::set<long> tempVecID;
-        long curID = it->getID();
-        const list<KSLE> tempList = it->getLists();
+        long curID = (it->second).getID();
+        const list<KSLE> tempList = (it->second).getLists();
         // each region
         for(list<KSLE>::const_iterator itSLE = tempList.begin();itSLE != tempList.end();++itSLE){
             int line = itSLE->getLine();
@@ -433,14 +540,14 @@ void KMultiSplit::buildRAG()
         }
         progressBar.autoUpdate();
         // link this region
-        RAGraph::vertex_descriptor v1 = getVertex(it->getID());
+        RAGraph::vertex_descriptor v1 = getVertex((it->second).getID());
         for(std::set<long>::iterator itSet = tempVecID.begin();itSet != tempVecID.end();++itSet){
-            std::vector<KRegion>::iterator itReg = std::find(m_vecRegion.begin(),m_vecRegion.end(),*itSet);
+            std::unordered_map<long,KRegion>::iterator itReg = m_mapRegion.find(*itSet);
             //qDebug()<<*itSet;
             RAGraph::vertex_descriptor v2 = getVertex(*itSet);
             //indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
             //qDebug()<<tempIndexMap[v1]<<tempIndexMap[v2];
-            boost::add_edge(v1, v2, getRegionDiff(*it,*itReg), m_RAG);
+            boost::add_edge(v1, v2, getRegionDiff(it->second,itReg->second), m_RAG);
         }
         progressBar.autoUpdate();
     }
@@ -450,9 +557,9 @@ void KMultiSplit::buildRAG()
 
 void KMultiSplit::mergeIn(long &des, long &src)
 {
-    std::vector<KRegion>::iterator itDes = std::find(m_vecRegion.begin(),m_vecRegion.end(),des);
-    std::vector<KRegion>::iterator itSrc = std::find(m_vecRegion.begin(),m_vecRegion.end(),src);
-    assert(itDes != m_vecRegion.end() && itSrc != m_vecRegion.end() && itSrc != m_vecRegion.end());
+    std::unordered_map<long,KRegion>::iterator itDes = m_mapRegion.find(des);
+    std::unordered_map<long,KRegion>::iterator itSrc = m_mapRegion.find(src);
+    assert(itDes != m_mapRegion.end() && itSrc != m_mapRegion.end() && itSrc != m_mapRegion.end());
 
     vertexIterator vi, vi_end;
     RAGraph::vertex_descriptor v_des,v_src;
@@ -493,8 +600,8 @@ void KMultiSplit::mergeIn(long &des, long &src)
     boost::clear_vertex(v_src, m_RAG);
     boost::remove_vertex(v_src, m_RAG);
     // merge the real region
-    (*itDes) += (*itSrc);
-    m_vecRegion.erase(itSrc);
+    (itDes->second) += (itSrc->second);
+    m_mapRegion.erase(itSrc);
     // change region label
     for(int index = 0;index<m_iXSize*m_iYSize;++index){
         if(labels[index] == src){
@@ -510,9 +617,9 @@ void KMultiSplit::mergeIn(long &des, long &src)
         RAGraph::vertex_descriptor v_target,v_source;
         v_target = boost::target(*eit, m_RAG);
         v_source = boost::source(*eit, m_RAG);
-        std::vector<KRegion>::iterator itTarget = std::find(m_vecRegion.begin(),m_vecRegion.end(),tempIndexMap[v_target]);
-        std::vector<KRegion>::iterator itSource = std::find(m_vecRegion.begin(),m_vecRegion.end(),tempIndexMap[v_source]);
-        tempWeightMap[*eit]=getRegionDiff(*itTarget,*itSource);
+        std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
+        std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
+        tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
     }
 }
 
@@ -529,9 +636,9 @@ void KMultiSplit::mergeIn(RAGraph::edge_descriptor & edge)
     long des = tempIndexMap[v_des];
     long src = tempIndexMap[v_src];
 
-    std::vector<KRegion>::iterator itDes = std::find(m_vecRegion.begin(),m_vecRegion.end(),des);
-    std::vector<KRegion>::iterator itSrc = std::find(m_vecRegion.begin(),m_vecRegion.end(),src);
-    assert(itDes != m_vecRegion.end() && itSrc != m_vecRegion.end());
+    std::unordered_map<long,KRegion>::iterator itDes = m_mapRegion.find(des);
+    std::unordered_map<long,KRegion>::iterator itSrc = m_mapRegion.find(src);
+    assert(itDes != m_mapRegion.end() && itSrc != m_mapRegion.end());
 
     RAGraph::adjacency_iterator vit, vend;
     //RAGraph::adjacency_iterator vdit, vdend;
@@ -562,8 +669,8 @@ void KMultiSplit::mergeIn(RAGraph::edge_descriptor & edge)
     boost::clear_vertex(v_src, m_RAG);
     boost::remove_vertex(v_src, m_RAG);
     // merge the real region
-    (*itDes) += (*itSrc);
-    m_vecRegion.erase(itSrc);
+    (itDes->second) += (itSrc->second);
+    m_mapRegion.erase(itSrc);
     // change region label
     for(int index = 0;index<m_iXSize*m_iYSize;++index){
         if(labels[index] == src){
@@ -574,14 +681,15 @@ void KMultiSplit::mergeIn(RAGraph::edge_descriptor & edge)
     tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
     weightMap tempWeightMap = boost::get(boost::edge_weight_t(),m_RAG);
     RAGraph::out_edge_iterator eit, eend;
+    //qDebug()<<boost::num_edges(m_RAG);
     std::tie(eit, eend) = boost::out_edges(v_des, m_RAG);
     for(;eit != eend;++eit){
         RAGraph::vertex_descriptor v_target,v_source;
         v_target = boost::target(*eit, m_RAG);
         v_source = boost::source(*eit, m_RAG);
-        std::vector<KRegion>::iterator itTarget = std::find(m_vecRegion.begin(),m_vecRegion.end(),tempIndexMap[v_target]);
-        std::vector<KRegion>::iterator itSource = std::find(m_vecRegion.begin(),m_vecRegion.end(),tempIndexMap[v_source]);
-        tempWeightMap[*eit]=getRegionDiff(*itTarget,*itSource);
+        std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
+        std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
+        tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
     }
 }
 
@@ -628,6 +736,83 @@ void KMultiSplit::runMultiSplit(float startScale, float endScale, float alpha, b
         if(curScale>endScale){ saveSplit(QString("%1").arg(level++)); break; }
     }
     K_WAITBAR_END(waitBar);
+}
+
+void KMultiSplit::testXMLOutput()
+{
+//    <?xml version="1.0" ?>
+//    <RegionList>
+//        <!-- RegionList of file: C://test.jpg -->
+//        <RegionDescription total="10">
+//            <Region name="nothing" id="1" height="5" width="123.456000" />
+//        </RegionDescription>
+//    </RegionList>
+    TiXmlDocument doc;
+
+    TiXmlDeclaration* decl = new TiXmlDeclaration( "1.0", "", "" );
+    doc.LinkEndChild(decl);
+
+    TiXmlElement * root = new TiXmlElement( "RegionList" );
+    doc.LinkEndChild(root);
+
+    TiXmlComment * comment = new TiXmlComment();
+    QString temp = " The RegionList of file: "+m_sInput+" ";
+    //qDebug()<<temp;
+    comment->SetValue( temp.toUtf8().constData() );
+
+    root->LinkEndChild(comment);
+
+    TiXmlElement * regionDescription = new TiXmlElement("RegionDescription");
+    root->LinkEndChild(regionDescription);
+    regionDescription->SetAttribute("total",10);
+
+    TiXmlElement * region;
+    region = new TiXmlElement("Region");
+    regionDescription->LinkEndChild(region);
+    region->SetAttribute("name", "nothing");
+    region->SetAttribute("id", 1);
+    region->SetAttribute("height", 5);
+    region->SetDoubleAttribute("width", 123.456); // floating point attrib
+
+    doc.SaveFile("C://test.xml");
+}
+
+void KMultiSplit::testXMLInput()
+{
+//    <?xml version="1.0" ?>
+//    <RegionList>
+//        <!-- RegionList of file: C://test.jpg -->
+//        <RegionDescription total="10">
+//            <Region name="nothing" id="1" height="5" weight="123.456000" />
+//        </RegionDescription>
+//    </RegionList>
+    TiXmlDocument doc("C://test.xml");
+    if (!doc.LoadFile(TIXML_ENCODING_UTF8)) return;
+
+    TiXmlHandle hRoot(&doc);
+
+    int totalRegions = 0;
+    double tempDouble = 0.;
+    int id=0;
+    int height = 0;
+    int width = 0;
+
+    TiXmlElement* pRegionNode=hRoot.FirstChild("RegionList").FirstChild("RegionDescription").FirstChild().Element();
+    hRoot.FirstChild("RegionList").FirstChild("RegionDescription").Element()->QueryIntAttribute("total",&totalRegions);
+    qDebug()<<"totalRegions"<<totalRegions;
+
+    for( ; pRegionNode; pRegionNode=pRegionNode->NextSiblingElement())
+    {
+        const char *pName=pRegionNode->Attribute("name");
+        if (pName) qDebug()<<pName;
+
+        pRegionNode->QueryIntAttribute("id", &id);
+        pRegionNode->QueryIntAttribute("height", &height);
+        pRegionNode->QueryDoubleAttribute("width",&tempDouble);
+
+        qDebug()<<"id"<<id<<"height"<<height<<"width"<<width<<"tempDouble"<<tempDouble;
+    }
+
 }
 
 void KMultiSplit::mergeCurScale(float minDiff)
@@ -696,6 +881,18 @@ std::tuple<float, float> KMultiSplit::getMinArea(KRegion &reg,std::vector<std::t
     const float degreeStep = M_PI/20.;
     list<KSLE> tempList = reg.getLists();
     cornerVec.clear();
+    if(tempList.size()==1){
+        KSLE sle = *(tempList.begin());
+        int line=sle.getLine()+1;
+        int start=sle.getStartCol()+1;
+        int end = sle.getEndCol()+1;
+        cornerVec.push_back(std::make_tuple(start,line));
+        cornerVec.push_back(std::make_tuple(start,line));
+        cornerVec.push_back(std::make_tuple(end,line));
+        cornerVec.push_back(std::make_tuple(end,line));
+        //qDebug()<<"test...";
+        return std::make_tuple(1,end-start+1);
+    }
     for(KSLE sle : tempList){
         int line=sle.getLine()+1;
         int start=sle.getStartCol()+1;
@@ -715,14 +912,18 @@ std::tuple<float, float> KMultiSplit::getMinArea(KRegion &reg,std::vector<std::t
         }
     }
     std::vector<std::tuple<float,float>> vecRotatedPoint;
-    vecRotatedPoint.push_back(std::make_tuple(get<2>(pointAtMin),get<4>(pointAtMin)));
-    vecRotatedPoint.push_back(std::make_tuple(get<2>(pointAtMin),get<5>(pointAtMin)));
-    vecRotatedPoint.push_back(std::make_tuple(get<3>(pointAtMin),get<4>(pointAtMin)));
-    vecRotatedPoint.push_back(std::make_tuple(get<3>(pointAtMin),get<5>(pointAtMin)));
+    vecRotatedPoint.push_back(std::make_tuple(get<4>(pointAtMin),get<2>(pointAtMin)));
+    vecRotatedPoint.push_back(std::make_tuple(get<5>(pointAtMin),get<2>(pointAtMin)));
+    vecRotatedPoint.push_back(std::make_tuple(get<5>(pointAtMin),get<3>(pointAtMin)));
+    vecRotatedPoint.push_back(std::make_tuple(get<4>(pointAtMin),get<3>(pointAtMin)));
     for(auto _point:vecRotatedPoint){
-        float nowTheta =std::atan(get<0>(_point)/get<1>(_point));
+        float nowTheta = 0.;
+        if(get<0>(_point)<=0.) nowTheta=std::atan(get<0>(_point)*-1./get<1>(_point))+M_PI/2.;
+        else nowTheta=std::atan(get<1>(_point)/get<0>(_point));
+        //qDebug()<<nowTheta;
+        //if(nowTheta<0) nowTheta+=M_PI;
         float orgTheta = nowTheta - degreeAtMin;
-        float length = get<0>(_point)/std::sin(nowTheta);
+        float length = get<1>(_point)/std::sin(nowTheta);
         float tempY = length * std::cos(orgTheta) - 1.;
         if(tempY<0.) tempY = 0.;
         if(tempY>m_iYSize-1) tempY=m_iYSize-1;
@@ -732,6 +933,9 @@ std::tuple<float, float> KMultiSplit::getMinArea(KRegion &reg,std::vector<std::t
 
         cornerVec.push_back(std::make_tuple(static_cast<int>(tempY),static_cast<int>(tempX)));
     }
+//    if(get<0>(pointAtMin)<0.001){
+//        qDebug()<<"degreeAtMin"<<degreeAtMin;
+//    }
 //qDebug()<<get<0>(pointAtMin)<<get<1>(pointAtMin);
     return std::make_tuple(get<0>(pointAtMin),get<1>(pointAtMin));
 }
@@ -769,7 +973,10 @@ std::tuple<float, float, float, float, float, float> KMultiSplit::getRotateArea(
             top = temp;
         }
     }
-    return std::make_tuple(bottom-top,right-left,left,right,top,bottom);
+    //if(bottom==top) bottom=top+1.;
+    //if(right==right) right=left+1.;
+    //qDebug()<<"bottom"<<bottom<<"top"<<top<<"left"<<left<<"right"<<right;
+    return std::make_tuple(bottom-top+1.,right-left+1.,left,right,top,bottom);
 }
 
 KMultiSplit::RAGraph::vertex_descriptor KMultiSplit::getVertex(long id)
@@ -832,7 +1039,7 @@ float KMultiSplit::getRegionDiff(KRegion &lhs, KRegion &rhs)
 //    if(lWidth<0.001)qDebug()<<lWidth;
 //    if(rWidth<0.001)qDebug()<<rWidth;
     shapeDiff = std::fabs(totalPointSum*totalHeight/totalWidth-lPointSum*lHeight/lWidth-rPointSum*rHeight/rWidth);
-
+//    qDebug()<<"shapeDiff"<<shapeDiff;
     weightedDiff = 0.9*colorDiff + 0.1 * shapeDiff;
 
     delete [] lColorVar;
@@ -865,6 +1072,104 @@ std::tuple<float, float> KMultiSplit::getGraphScale()
     if(avrDiff==0.) return std::make_tuple(min_diff,0.);
 
     return std::make_tuple(min_diff,boost::math::powm1(avrDiff,0.5)+1.);
+}
+
+void KMultiSplit::testMinArea()
+{
+
+}
+
+void KMultiSplit::drawSquare(std::vector<std::tuple<int,int> > &src, int band)
+{
+    static int count = 0;
+    GDALDataset *poSrcDS = (GDALDataset *)GDALOpen(m_sInput.toUtf8().constData(), GA_ReadOnly );
+    GDALDataset *dataSet;
+    //const char *pszFormat = poSrcDS->GetDriverName();
+    GDALDriver *poDriver = GetGDALDriverManager()->GetDriverByName("GTiff");
+    QString tempOut = m_sOutPut + QString("-square%1").arg(count++) + m_extName;
+    dataSet = poDriver->CreateCopy(tempOut.toUtf8().constData(), poSrcDS, FALSE, NULL, NULL, NULL );
+    /* Once we're done, close properly the dataset */
+    dataSet->FlushCache();
+    GDALClose((GDALDatasetH)poSrcDS);
+
+    int width = (penWidth-1)/2;
+    std::vector<std::pair<int,int>> temp;
+    m_nBand = std::min(m_nBand,3);
+    float *pafData = (float *) CPLMalloc(sizeof(float)*m_iXSize*m_iYSize);
+    GDALRasterBand * piBand = NULL;
+    for(int index = 0;index<m_nBand;++index){
+        piBand = dataSet->GetRasterBand(index + 1);
+        piBand->RasterIO( GF_Read, 0, 0, m_iXSize, m_iYSize, pafData, m_iXSize, m_iYSize, GDT_Float32, 0, 0 );
+        temp.clear();
+        for(unsigned int vecIndex = 0;vecIndex<src.size();){
+            ++vecIndex;
+            temp.push_back(std::make_pair(std::get<1>(src[vecIndex-1]),std::get<0>(src[vecIndex-1])));
+            if(vecIndex%4==0){
+                temp.push_back(temp[0]);
+                for(unsigned int num = 0;num<temp.size()-1;++num){
+                    // process each square
+                    long cnt = 0;
+                    if(std::abs(temp[num].first-temp[num+1].first)<std::abs(temp[num].second-temp[num+1].second)){
+                        double dxy = 1.0 * (temp[num+1].first-temp[num].first )/(temp[num+1].second-temp[num].second);
+                        if(temp[num].second<temp[num+1].second){
+                            for(long pos = temp[num].second;pos<temp[num+1].second;++pos,++cnt) {
+                                long tempX = static_cast<long>(temp[num].first + dxy*cnt);
+                                if(pos<0||pos>m_iYSize-1||tempX<0||tempX>m_iXSize-1) continue;
+
+                                for(int tempPen = std::max(tempX-width,static_cast<long>(0));tempPen<std::min(tempX+width,static_cast<long>(m_iXSize));++tempPen)
+                                {
+                                    if(index==band) pafData[pos*m_iXSize+tempPen]=(std::numeric_limits<float>::max)();
+                                    else pafData[pos*m_iXSize+tempPen]=0;
+                                }
+                            }
+                        }else{
+                            for(long pos = temp[num+1].second;pos<temp[num].second;++pos,++cnt) {
+                                long tempX = static_cast<long>(temp[num+1].first + dxy*cnt);
+                                if(pos<0||pos>m_iYSize-1||tempX<0||tempX>m_iXSize-1) continue;
+                                for(int tempPen = std::max(tempX-width,static_cast<long>(0));tempPen<std::min(tempX+width,static_cast<long>(m_iXSize));++tempPen)
+                                {
+                                    if(index==band) pafData[pos*m_iXSize+tempPen]=(std::numeric_limits<float>::max)();
+                                    else pafData[pos*m_iXSize+tempPen]=0;
+                                }
+                            }
+                        }
+                    }else{
+                        double dyx = 1.0 * (temp[num+1].second-temp[num].second )/(temp[num+1].first-temp[num].first);
+                        if(temp[num].first<temp[num+1].first){
+                            for(long pos = temp[num].first;pos<temp[num+1].first;++pos,++cnt) {
+                                long tempY = static_cast<long>(temp[num].second + dyx*cnt);
+                                if(pos<0||pos>m_iXSize-1||tempY<0||tempY>m_iYSize-1) continue;
+                                //pafData[tempY*XSize+pos]=0;
+                                for(int tempPen = std::max(tempY-width,static_cast<long>(0));tempPen<std::min(tempY+width,static_cast<long>(m_iYSize));++tempPen)
+                                {
+                                    if(index==band) pafData[tempPen*m_iXSize+pos]=(std::numeric_limits<float>::max)();
+                                    else pafData[tempPen*m_iXSize+pos]=0;
+                                }
+                            }
+                        }else{
+                            for(long pos = temp[num+1].first;pos<temp[num].first;++pos,++cnt) {
+                                long tempY = static_cast<long>(temp[num+1].second + dyx*cnt);
+                                if(pos<0||pos>m_iXSize-1||tempY<0||tempY>m_iYSize-1) continue;
+                                for(int tempPen = std::max(tempY-width,static_cast<long>(0));tempPen<std::min(tempY+width,static_cast<long>(m_iYSize));++tempPen)
+                                {
+                                    if(index==band) pafData[tempPen*m_iXSize+pos]=(std::numeric_limits<float>::max)();
+                                    else pafData[tempPen*m_iXSize+pos]=0;
+                                }
+                            }
+                        }
+                    }
+                }
+                temp.clear();
+            }
+        }
+
+        piBand->RasterIO( GF_Write, 0, 0, m_iXSize, m_iYSize, pafData, m_iXSize, m_iYSize, GDT_Float32, 0, 0 );
+        piBand->FlushCache();
+    }
+    dataSet->FlushCache();
+    if( dataSet != NULL )
+        GDALClose((GDALDatasetH)dataSet);
+    CPLFree(pafData);
 }
 /*
  * RAGraph::out_edge_iterator eit, eend;

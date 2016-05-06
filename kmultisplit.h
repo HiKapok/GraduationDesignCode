@@ -9,6 +9,7 @@
 #include <boost/graph/adjacency_list.hpp>
 
 #include <tuple>
+#include <unordered_map>
 
 class KMultiSplit
 {
@@ -19,15 +20,18 @@ public:
     } K_OutTypes;
     typedef typename boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
     typedef typename boost::property<boost::vertex_index_t, long> VertexIDProperty;
-    typedef typename boost::adjacency_list<boost::hash_setS, boost::listS,boost::undirectedS,VertexIDProperty,EdgeWeightProperty> RAGraph;
+    // hash_setS,listS
+    typedef typename boost::adjacency_list<boost::hash_setS, boost::hash_setS,boost::undirectedS,VertexIDProperty,EdgeWeightProperty> RAGraph;
     typedef typename boost::property_map<RAGraph,boost::edge_weight_t>::type weightMap;
     typedef typename boost::property_map<RAGraph,boost::vertex_index_t>::type indexMap;
     typedef typename boost::graph_traits<RAGraph>::edge_iterator edgeIterator;
     typedef typename boost::graph_traits<RAGraph>::vertex_iterator vertexIterator;
     ~KMultiSplit();
-    KMultiSplit(QString,QString,QString,K_OutTypes=OutPic);
+    KMultiSplit(QString,QString,QString,K_OutTypes=OutXML);
     void quickSplit(float);
     void runMultiSplit(float,float,float,bool=false,RAGraph::edges_size_type=5);
+    void testXMLOutput();
+    void testXMLInput();
 private:
     QString m_sInput;
     QString m_sOutPut;
@@ -42,7 +46,9 @@ private:
     float **m_orgImgBuff;
     long *labels;
     float m_maxScale;
-    std::vector<KRegion> m_vecRegion;
+    float *m_adfMinMax;
+    const int penWidth = 3;
+    std::unordered_map<long,KRegion> m_mapRegion;
     RAGraph m_RAG;
     //float m_quickSplitThres;
     int getQuickColorMean(KRegion&,double *);
@@ -59,6 +65,8 @@ private:
     RAGraph::vertex_descriptor getVertex(long);
     float getRegionDiff(KRegion&,KRegion &);
     std::tuple<float,float> getGraphScale();
+    void testMinArea();
+    void drawSquare(std::vector<std::tuple<int,int> > &,int = 0);
 };
 
 #endif // KMULTISPLIT_H

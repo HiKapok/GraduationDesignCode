@@ -139,8 +139,10 @@ int main(int argc, char *argv[])
                         if(typeValue=="split"){
                             // input image, output image, label output path
                             KMultiSplit ksplit(TrainImages,TestImages,PredictOut);
+                            //ksplit.testXMLOutput();
+                            //ksplit.testXMLInput();
                             ksplit.quickSplit(10.);
-                            ksplit.runMultiSplit(200,20200,1.235);//1.023
+                            ksplit.runMultiSplit(100,40200,1.225);//1.023
                         }else qDebug()<<"unknown feature type to use!";
                     }
                 }
