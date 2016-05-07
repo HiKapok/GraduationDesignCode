@@ -19,15 +19,15 @@ public:
         OutXML = 1,
     } K_OutTypes;
     typedef typename boost::property<boost::edge_weight_t, float> EdgeWeightProperty;
-    typedef typename boost::property<boost::vertex_index_t, long> VertexIDProperty;
+    typedef typename boost::property<boost::vertex_name_t, long> VertexIDProperty;
     // hash_setS,listS
     typedef typename boost::adjacency_list<boost::hash_setS, boost::hash_setS,boost::undirectedS,VertexIDProperty,EdgeWeightProperty> RAGraph;
     typedef typename boost::property_map<RAGraph,boost::edge_weight_t>::type weightMap;
-    typedef typename boost::property_map<RAGraph,boost::vertex_index_t>::type indexMap;
+    typedef typename boost::property_map<RAGraph,boost::vertex_name_t>::type indexMap;
     typedef typename boost::graph_traits<RAGraph>::edge_iterator edgeIterator;
     typedef typename boost::graph_traits<RAGraph>::vertex_iterator vertexIterator;
     ~KMultiSplit();
-    KMultiSplit(QString,QString,QString,K_OutTypes=OutXML);
+    KMultiSplit(QString,QString,QString,K_OutTypes=OutPic);
     void quickSplit(float);
     void runMultiSplit(float,float,float,bool=false,RAGraph::edges_size_type=5);
     void testXMLOutput();

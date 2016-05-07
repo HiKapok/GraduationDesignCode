@@ -17,6 +17,7 @@
 #include <QStringList>
 #include <QObject>
 #include <QProcess>
+#include <QTime>
 
 #include "kcalpmk.h"
 #include "ksvmcontroller.h"
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
     parser.addPositionalArgument("TestImages",QObject::tr("\tthe parent directorypath of the test images folders"));
     parser.addPositionalArgument("PredictOut",QObject::tr("\tthe filepath of the predict output"));
 
-    QCommandLineOption textureType(QStringList()<<"t"<<"type",QObject::tr("multi_texture can be calculate"),QObject::tr("the texture to be calculate"));
+    QCommandLineOption textureType(QStringList()<<"t"<<"type",QObject::tr("multi_texture can be calculate(lbp,slbp,stamura,sgabor,sglcm,split)"),QObject::tr("the texture to be calculate"));
     parser.addOption(textureType);
 
     QCommandLineOption beOverwriteCache("o",QObject::tr("whether to overwrite the caches"));
@@ -98,12 +99,14 @@ int main(int argc, char *argv[])
     //qDebug()<<typeValue;
     //qDebug()<<"the input filepath"<<fileinput;
     //qDebug()<<"the output filepath"<<fileoutput;
+    QTime timeRecoder;
+    timeRecoder.start();
     if(typeValue=="lbp"){
         bool beOverWrite = parser.isSet(beOverwriteCache);
         if(parser.isSet(calImprovedLBP)){ KMakeLBP_SVMTable::useImprovedLBP=true; }
         KMakeLBP_SVMTable svmTbl(TrainImages,TestImages,PredictOut,beOverWrite);
         svmTbl.makeTable();
-        QString exePath=QCoreApplication::applicationDirPath()+"/windows/";
+        QString exePath=QCoreApplication::applicationDirPath()+"/external/windows/";
         QStringList args;
         args.push_back("-t 4");
         //args.push_back("4");//any one is ok!
@@ -120,18 +123,22 @@ int main(int argc, char *argv[])
             if(parser.isSet(calImprovedLBP)){
                 KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_ImprovedLBP);
                 KSVMController.build();
+                KSVMController.classProc();
             }else{
                 KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_LBP);
                 KSVMController.build();
+                KSVMController.classProc();
             }
         }else{
             if(typeValue=="stamura"){
                 KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_Tamura);
                 KSVMController.build();
+                KSVMController.classProc();
             }else{
                 if(typeValue=="sgabor"){
                     KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_Gabor);
                     KSVMController.build();
+                    KSVMController.classProc();
                 }else{
                     if(typeValue=="sglcm"){
 
@@ -141,8 +148,8 @@ int main(int argc, char *argv[])
                             KMultiSplit ksplit(TrainImages,TestImages,PredictOut);
                             //ksplit.testXMLOutput();
                             //ksplit.testXMLInput();
-                            ksplit.quickSplit(10.);
-                            ksplit.runMultiSplit(100,40200,1.225);//1.023
+                            ksplit.quickSplit(50.);
+                            ksplit.runMultiSplit(200,40200,1.355);//1.023
                         }else qDebug()<<"unknown feature type to use!";
                     }
                 }
@@ -172,7 +179,7 @@ int main(int argc, char *argv[])
 
 //    GDALClose(piDataset);
 //    GDALClose(poDataset);
-
+    std::cout<<"run time:"<<timeRecoder.elapsed()<<"ms\r\n";
     std::cout<<"app run over...";
     std::cout.flush();
 //    return app.exec();

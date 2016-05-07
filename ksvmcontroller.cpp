@@ -15,10 +15,13 @@
 #include <QDir>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QCoreApplication>
+#include <QFile>
 
 #include <iostream>
 #include <fstream>
 #include <utility>
+#include <limits>
 
 using std::pair;
 using std::map;
@@ -43,6 +46,26 @@ void KSVMController::build()
 
 void KSVMController::classProc()
 {
+
+    QProcess process;
+    QString exePath=QCoreApplication::applicationDirPath()+"/external/tools/";
+    QStringList args;
+    std::cout<<"classification...\n\r";
+    process.setWorkingDirectory(exePath);
+    process.setStandardOutputFile("GraduationOutput.txt");
+    args.push_back("easy.py");
+    args.push_back(m_sOutRoot+"trainTbls.txt");
+    args.push_back(m_sOutRoot+"testTbls.txt");
+    process.start("python",args);
+    process.waitForStarted();
+    process.waitForFinished((std::numeric_limits<int>::max)());
+
+    process.close();
+
+    QFile file("GraduationOutput.txt");
+    file.open(QFile::ReadOnly);
+    std::cout<<file.readAll().constData();
+    //QProcess::execute("python",args);
     //svm-scale -l 0 -u 1 -s range train > train.scale
     //svm-scale -r range test > test.scale
 }

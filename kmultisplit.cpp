@@ -47,6 +47,7 @@ KMultiSplit::KMultiSplit(QString input, QString output, QString labelOut, KMulti
     m_iXSize = piDataset->GetRasterXSize();
     m_iYSize = piDataset->GetRasterYSize();
     m_nBand = piDataset->GetRasterCount();
+    if(m_nBand>3) m_nBand=3;
     GDALRasterBand * piBand = NULL;
     // allocate the memory
     m_orgImgBuff = (float **) CPLMalloc(sizeof(float *)*m_nBand);
@@ -440,7 +441,7 @@ void KMultiSplit::saveSplit(QString level)
         TiXmlElement * region;
 
         vertexIterator vi, vi_end;
-        indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+        indexMap tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
         boost::tie(vi,vi_end) = boost::vertices(m_RAG);
         std::vector<std::tuple<int,int>> tempVec;
         for(;vi!=vi_end;++vi){
@@ -545,7 +546,7 @@ void KMultiSplit::buildRAG()
             std::unordered_map<long,KRegion>::iterator itReg = m_mapRegion.find(*itSet);
             //qDebug()<<*itSet;
             RAGraph::vertex_descriptor v2 = getVertex(*itSet);
-            //indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+            //indexMap tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
             //qDebug()<<tempIndexMap[v1]<<tempIndexMap[v2];
             boost::add_edge(v1, v2, getRegionDiff(it->second,itReg->second), m_RAG);
         }
@@ -563,7 +564,7 @@ void KMultiSplit::mergeIn(long &des, long &src)
 
     vertexIterator vi, vi_end;
     RAGraph::vertex_descriptor v_des,v_src;
-    indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+    indexMap tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
     boost::tie(vi,vi_end) = boost::vertices(m_RAG);
     for(;vi!=vi_end;++vi){
         if(tempIndexMap[*vi]==src){
@@ -609,17 +610,19 @@ void KMultiSplit::mergeIn(long &des, long &src)
         }
     }
     // change edge's weight
-    tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
-    weightMap tempWeightMap = boost::get(boost::edge_weight_t(),m_RAG);
-    RAGraph::out_edge_iterator eit, eend;
-    std::tie(eit, eend) = boost::out_edges(v_des, m_RAG);
-    for(;eit != eend;++eit){
-        RAGraph::vertex_descriptor v_target,v_source;
-        v_target = boost::target(*eit, m_RAG);
-        v_source = boost::source(*eit, m_RAG);
-        std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
-        std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
-        tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
+    tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
+    {
+        weightMap tempWeightMap = boost::get(boost::edge_weight_t(),m_RAG);
+        RAGraph::out_edge_iterator eit, eend;
+
+        for(std::tie(eit, eend) = boost::out_edges(v_des, m_RAG);eit != eend;++eit){
+            RAGraph::vertex_descriptor v_target,v_source;
+            v_target = boost::target(*eit, m_RAG);
+            v_source = boost::source(*eit, m_RAG);
+            std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
+            std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
+            tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
+        }
     }
 }
 
@@ -631,7 +634,7 @@ void KMultiSplit::mergeIn(RAGraph::edge_descriptor & edge)
     v_des = boost::target(edge, m_RAG);
     v_src = boost::source(edge, m_RAG);
 
-    indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+    indexMap tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
 
     long des = tempIndexMap[v_des];
     long src = tempIndexMap[v_src];
@@ -678,18 +681,19 @@ void KMultiSplit::mergeIn(RAGraph::edge_descriptor & edge)
         }
     }
     // change edge's weight
-    tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+    tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
     weightMap tempWeightMap = boost::get(boost::edge_weight_t(),m_RAG);
-    RAGraph::out_edge_iterator eit, eend;
-    //qDebug()<<boost::num_edges(m_RAG);
-    std::tie(eit, eend) = boost::out_edges(v_des, m_RAG);
-    for(;eit != eend;++eit){
-        RAGraph::vertex_descriptor v_target,v_source;
-        v_target = boost::target(*eit, m_RAG);
-        v_source = boost::source(*eit, m_RAG);
-        std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
-        std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
-        tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
+    {
+        RAGraph::out_edge_iterator eit, eend;
+        //qDebug()<<boost::num_edges(m_RAG);
+        for(std::tie(eit, eend) = boost::out_edges(v_des, m_RAG);eit != eend;++eit){
+            RAGraph::vertex_descriptor v_target,v_source;
+            v_target = boost::target(*eit, m_RAG);
+            v_source = boost::source(*eit, m_RAG);
+            std::unordered_map<long,KRegion>::iterator itTarget = m_mapRegion.find(tempIndexMap[v_target]);
+            std::unordered_map<long,KRegion>::iterator itSource = m_mapRegion.find(tempIndexMap[v_source]);
+            tempWeightMap[*eit]=getRegionDiff(itTarget->second,itSource->second);
+        }
     }
 }
 
@@ -983,7 +987,7 @@ KMultiSplit::RAGraph::vertex_descriptor KMultiSplit::getVertex(long id)
 {
     vertexIterator vi, vi_end;
     RAGraph::vertex_descriptor v;
-    indexMap tempIndexMap = boost::get(boost::vertex_index_t(), m_RAG);
+    indexMap tempIndexMap = boost::get(boost::vertex_name_t(), m_RAG);
     boost::tie(vi,vi_end) = boost::vertices(m_RAG);
     for(;vi!=vi_end;++vi){
         if(tempIndexMap[*vi]==id){ break; }
