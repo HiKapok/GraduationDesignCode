@@ -8,8 +8,6 @@
 #include <QDebug>
 #include <QCoreApplication>
 
-#include <iostream>
-
 using std::map;
 using std::cout;
 
@@ -91,3 +89,4 @@ bool KUtility::checkDirName(QString &RootDir)
 
     return true;
 }
+

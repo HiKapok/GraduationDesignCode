@@ -8,7 +8,8 @@ typedef enum {
     Feature_LBP = 0,
     Feature_ImprovedLBP = 1,
     Feature_Tamura = 2,
-    Feature_Gabor = 3
+    Feature_GLCM = 3,
+    Feature_Gabor = 4
 } K_FeatureType;
 
 class KSVMController

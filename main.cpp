@@ -141,15 +141,17 @@ int main(int argc, char *argv[])
                     KSVMController.classProc();
                 }else{
                     if(typeValue=="sglcm"){
-
+                        KSVMController KSVMController(TrainImages,TestImages,PredictOut,Feature_GLCM);
+                        KSVMController.build();
+                        KSVMController.classProc();
                     }else{
                         if(typeValue=="split"){
                             // input image, output image, label output path
                             KMultiSplit ksplit(TrainImages,TestImages,PredictOut);
                             //ksplit.testXMLOutput();
                             //ksplit.testXMLInput();
-                            ksplit.quickSplit(50.);
-                            ksplit.runMultiSplit(200,40200,1.355);//1.023
+                            ksplit.quickSplit(150.);
+                            ksplit.runMultiSplit(200,400200,1.855);//1.023
                         }else qDebug()<<"unknown feature type to use!";
                     }
                 }

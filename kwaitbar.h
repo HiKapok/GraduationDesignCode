@@ -25,18 +25,18 @@ public:
     KWaitBar(QString tip, int totalItems,unsigned int step=2000)
         :locked(true),
         m_tips(tip),
-        m_iTotalItems(totalItems>8 ? 8 : totalItems),
+        m_iTotalItems(totalItems>9 ? 9 : totalItems+1),
         m_iNowPos(0),
         m_iHisNowPos(-1),
         m_tRunning(WaitBar_Run),
         m_step(step){}
-    inline void cancel(){ m_iNowPos = m_iTotalItems; m_tRunning = WaitBar_Cancel; }
+    inline void cancel(){ m_iNowPos = m_iTotalItems-1; m_tRunning = WaitBar_Cancel; }
     inline void update(){
         static unsigned int temp=0;
         temp++;
         if(temp>m_step){ m_iNowPos++; m_iNowPos= (m_iNowPos % m_iTotalItems); temp=0; }
     }
-    inline void finish(){ m_iNowPos = m_iTotalItems; m_tRunning = WaitBar_Finish; }
+    inline void finish(){ m_iNowPos = m_iTotalItems-1; m_tRunning = WaitBar_Finish; }
     void autoRun(){
         if (true != sBeRunning){
             sBeRunning = true;

@@ -21,6 +21,8 @@
 #include <limits>
 #include <utility>
 #include <vector>
+#include <iostream>
+#include <fstream>
 
 KMultiSplit::~KMultiSplit()
 {
@@ -451,7 +453,7 @@ void KMultiSplit::saveSplit(QString level)
             std::unordered_map<long,KRegion>::iterator it = m_mapRegion.find(static_cast<long>(idTemp));
             region = new TiXmlElement("Region");
             regionDescription->LinkEndChild(region);
-            region->SetAttribute("name", "default");
+            region->SetAttribute("pixels", (it->second).totalPixels());
             region->SetAttribute("id", idTemp);
             std::tie(height,width)=getMinArea(it->second,tempVec);
             region->SetDoubleAttribute("height", height);
@@ -706,12 +708,19 @@ void KMultiSplit::runMultiSplit(float startScale, float endScale, float alpha, b
     float curScale = 0.;
     float minDiff = 0.;
 
+    QString tempName = m_sOutPut+"-recorder.txt";
+    std::fstream fsRecorder(tempName.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
+
+    QString tempString("");
+
     m_maxScale = endScale;
     KWaitBar waitBar("MultiSplit",4,10);
     K_WAITBAR_START(waitBar);
     while(true){
         if(boost::num_edges(m_RAG)<minAreas) break;
         std::tie(minDiff,curScale)=getGraphScale();
+        tempString = QString("%1\t%2\n").arg(minDiff).arg(curScale);
+        fsRecorder<<tempString.toStdString();
         //qDebug()<<"min"<<minDiff;
         //qDebug()<<"curScale"<<curScale;
         if(curScale>startScale) break;
@@ -720,12 +729,14 @@ void KMultiSplit::runMultiSplit(float startScale, float endScale, float alpha, b
         waitBar.update();
     }
     preScale = curScale;
-    saveSplit(QString("%1").arg(level++));
+    saveSplit(QString("%1-%2").arg(level++).arg(curScale,-4));
     waitBar.update();
     while(true){
         if(boost::num_edges(m_RAG)<minAreas){ saveSplit(QString("%1").arg(level++)); break; }
         if(curScale<alpha*preScale){
             std::tie(minDiff,curScale)=getGraphScale();
+            tempString = QString("%1\t%2\n").arg(minDiff).arg(curScale);
+            fsRecorder<<tempString.toStdString();
             //qDebug()<<"min"<<minDiff;
             //qDebug()<<"curScale"<<curScale;
             // merge
@@ -733,12 +744,13 @@ void KMultiSplit::runMultiSplit(float startScale, float endScale, float alpha, b
             waitBar.update();
         }else{
             preScale = curScale;
-            saveSplit(QString("%1").arg(level++));
+            saveSplit(QString("%1-%2").arg(level++).arg(curScale,-4));
             waitBar.update();
             if(curScale>endScale){ break; }
         }
         if(curScale>endScale){ saveSplit(QString("%1").arg(level++)); break; }
     }
+    fsRecorder.close();
     K_WAITBAR_END(waitBar);
 }
 
@@ -748,7 +760,7 @@ void KMultiSplit::testXMLOutput()
 //    <RegionList>
 //        <!-- RegionList of file: C://test.jpg -->
 //        <RegionDescription total="10">
-//            <Region name="nothing" id="1" height="5" width="123.456000" />
+//            <Region pixels=1000 id="1" height="5" width="123.456000" />
 //        </RegionDescription>
 //    </RegionList>
     TiXmlDocument doc;
@@ -773,7 +785,7 @@ void KMultiSplit::testXMLOutput()
     TiXmlElement * region;
     region = new TiXmlElement("Region");
     regionDescription->LinkEndChild(region);
-    region->SetAttribute("name", "nothing");
+    region->SetAttribute("pixels", 1000);
     region->SetAttribute("id", 1);
     region->SetAttribute("height", 5);
     region->SetDoubleAttribute("width", 123.456); // floating point attrib
@@ -800,6 +812,7 @@ void KMultiSplit::testXMLInput()
     int id=0;
     int height = 0;
     int width = 0;
+    int pixels = 0;
 
     TiXmlElement* pRegionNode=hRoot.FirstChild("RegionList").FirstChild("RegionDescription").FirstChild().Element();
     hRoot.FirstChild("RegionList").FirstChild("RegionDescription").Element()->QueryIntAttribute("total",&totalRegions);
@@ -807,14 +820,14 @@ void KMultiSplit::testXMLInput()
 
     for( ; pRegionNode; pRegionNode=pRegionNode->NextSiblingElement())
     {
-        const char *pName=pRegionNode->Attribute("name");
-        if (pName) qDebug()<<pName;
-
+//        const char *pName=pRegionNode->Attribute("pixels");
+//        if (pName) qDebug()<<pName;
+        pRegionNode->QueryIntAttribute("pixels", &pixels);
         pRegionNode->QueryIntAttribute("id", &id);
         pRegionNode->QueryIntAttribute("height", &height);
         pRegionNode->QueryDoubleAttribute("width",&tempDouble);
 
-        qDebug()<<"id"<<id<<"height"<<height<<"width"<<width<<"tempDouble"<<tempDouble;
+        qDebug()<<"pixels"<<pixels<<"id"<<id<<"height"<<height<<"width"<<width<<"tempDouble"<<tempDouble;
     }
 
 }

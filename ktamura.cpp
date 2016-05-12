@@ -2,6 +2,7 @@
 
 #include "kprogressbar.h"
 #include "common.h"
+#include "kutility.h"
 #include "kpicinfo.h"
 #include "kimagecvt.h" //for image convert
 
@@ -49,7 +50,7 @@ KTamura::KTamura(QString input)
     GDALRasterBand * poBand = poDataset->GetRasterBand(1);
     poBand->RasterIO( GF_Read, 0, 0, m_lXSize, m_lYSize, m_fOrgArray, m_lXSize, m_lYSize, GDT_Float32, 0, 0 );
 
-    reflectExtend(m_fOrgArray,m_fExtArray);
+    KUtility::reflectExtend<float>(m_fOrgArray,m_fExtArray,m_lXSize,m_lYSize,m_iMaxExtend);
 
     GDALClose(piDataset);
     GDALClose(poDataset);
@@ -471,108 +472,4 @@ QString KTamura::getSVMString(int start)
         temp+=QString("%1:%%2 ").arg(index).arg(index-start+1);
     }
     return QString(temp).arg(m_dCoarseness).arg(m_dContrast).arg(m_dDirectionality);
-}
-
-bool KTamura::reflectExtend(float * inBuff, float * outBuff)
-{
-    assert(NULL != outBuff);
-    assert(NULL != inBuff);
-
-    long width = m_lXSize + 2*m_iMaxExtend;
-    long height = m_lYSize + 2*m_iMaxExtend;
-
-    if(width < 3 * m_iMaxExtend || height < 3 * m_iMaxExtend)
-    {
-        std::cout<<QString("KTamura:each line of the image cannot be shorter than %1!").arg(m_iMaxExtend).toStdString()<<std::endl;
-        exit( 1 );
-    }
-    // copy the source to the outbuff
-    for(int iYDes = m_iMaxExtend,iYSrc = 0;iYDes < height - m_iMaxExtend;++iYDes,++iYSrc)
-    {
-        for(int iXDes = m_iMaxExtend,iXSrc = 0;iXDes < width - m_iMaxExtend;++iXDes,++iXSrc)
-        {
-            outBuff[iYDes*width+iXDes] = inBuff[iYSrc*(width-2*m_iMaxExtend)+iXSrc];
-        }
-    }
-
-    // fill horizontal
-    for(int iYDes = m_iMaxExtend;iYDes < height - m_iMaxExtend;++iYDes)
-    {
-        // fill the head of each line
-        int iXDes = m_iMaxExtend-1,iXSrc = m_iMaxExtend+1;
-        for(;iXDes >= 0 && iXSrc < width - m_iMaxExtend;--iXDes,++iXSrc)
-        {
-            outBuff[iYDes*width+iXDes] = outBuff[iYDes*width+iXSrc];
-        }
-        for(;iXDes >= 0;--iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = outBuff[iYDes*width+iXSrc-1];
-        }
-        // fill the end of each line
-        iXDes = width - m_iMaxExtend,iXSrc = width - m_iMaxExtend - 2;
-        for(;iXDes < width && iXSrc >= m_iMaxExtend;++iXDes,--iXSrc)
-        {
-            outBuff[iYDes*width+iXDes] = outBuff[iYDes*width+iXSrc];
-        }
-        for(;iXDes < width;++iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = outBuff[iYDes*width+iXSrc+1];
-        }
-    }
-
-    // fill vertical -- think rotate 90 degrees
-    for(int iYDes = m_iMaxExtend;iYDes < width - m_iMaxExtend;++iYDes)
-    {
-        // fill the head of each line
-        int iXDes = m_iMaxExtend-1,iXSrc = m_iMaxExtend+1;
-        for(;iXDes >= 0 && iXSrc < height - m_iMaxExtend;--iXDes,++iXSrc)
-        {
-            outBuff[iXDes*width+iYDes] = outBuff[iXSrc*width+iYDes];
-        }
-        for(;iXDes >= 0;--iXDes)
-        {
-            outBuff[iXDes*width+iYDes] = outBuff[(iXSrc-1)*width+iYDes];
-        }
-        // fill the end of each line
-        iXDes = height - m_iMaxExtend,iXSrc = height - m_iMaxExtend - 2;
-        for(;iXDes < height && iXSrc >= m_iMaxExtend;++iXDes,--iXSrc)
-        {
-            outBuff[iXDes*width+iYDes] = outBuff[iXSrc*width+iYDes];
-        }
-        for(;iXDes < height;++iXDes)
-        {
-            outBuff[iXDes*width+iYDes] = outBuff[(iXSrc+1)*width+iYDes];
-        }
-    }
-
-    // fill four corners, please find the axis of symmetry carefully
-    for(int iYDes = 0;iYDes < m_iMaxExtend;++iYDes)
-    {
-        for(int iXDes = 0;iXDes < m_iMaxExtend;++iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = (outBuff[(2*m_iMaxExtend-iYDes)*width+iXDes]+outBuff[iYDes*width+2*m_iMaxExtend-iXDes])/2;
-        }
-    }
-    for(int iYDes = 0;iYDes < m_iMaxExtend;++iYDes)
-    {
-        for(int iXDes = width-m_iMaxExtend;iXDes < width;++iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = (outBuff[(2*m_iMaxExtend-iYDes)*width+iXDes]+outBuff[iYDes*width+2*(width-m_iMaxExtend-1)-iXDes])/2;
-        }
-    }
-    for(int iYDes = height - m_iMaxExtend;iYDes < height;++iYDes)
-    {
-        for(int iXDes = 0;iXDes < m_iMaxExtend;++iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = (outBuff[(2*(height-m_iMaxExtend-1)-iYDes)*width+iXDes]+outBuff[iYDes*width+2*m_iMaxExtend-iXDes])/2;
-        }
-    }
-    for(int iYDes = height - m_iMaxExtend;iYDes < height;++iYDes)
-    {
-        for(int iXDes = width - m_iMaxExtend;iXDes < width;++iXDes)
-        {
-            outBuff[iYDes*width+iXDes] = (outBuff[(2*(height-m_iMaxExtend-1)-iYDes)*width+iXDes]+outBuff[iYDes*width+2*(width-m_iMaxExtend-1)-iXDes])/2;
-        }
-    }
-    return true;
 }

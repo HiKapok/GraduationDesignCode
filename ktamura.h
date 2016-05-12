@@ -28,7 +28,6 @@ private:
     long m_lXSize;
     long m_lYSize;
     const int m_iMaxExtend;
-    bool reflectExtend(float *, float *);
     double calCoarseness();
     double calContrast();
     double calDirectionality();

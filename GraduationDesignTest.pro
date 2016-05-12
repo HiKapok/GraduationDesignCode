@@ -30,7 +30,9 @@ SOURCES += main.cpp \
     ksvmcontroller.cpp \
     kutility.cpp \
     kregion.cpp \
-    kmultisplit.cpp
+    kmultisplit.cpp \
+    kglcm.cpp \
+    kgabor.cpp
 
 #edited for openCV3.0
 #库引入方�
@@ -252,4 +254,6 @@ HEADERS += \
     kutility.h \
     kregion.h \
     kmultisplit.h \
-    kwaitbar.h
+    kwaitbar.h \
+    kglcm.h \
+    kgabor.h
