@@ -32,7 +32,7 @@ public:
 
         if(width < 3 * iKernelSize || height < 3 * iKernelSize)
         {
-            std::cout<<QString("KTamura:each line of the image cannot be shorter than %1!").arg(iKernelSize).toStdString()<<std::endl;
+            std::cout<<QString("ExtendImage:each line of the image cannot be shorter than %1!").arg(iKernelSize).toStdString()<<std::endl;
             exit( 1 );
         }
         // copy the source to the outbuff

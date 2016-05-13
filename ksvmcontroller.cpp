@@ -6,6 +6,7 @@
 #include "kutility.h"
 #include "ktamura.h"
 #include "kglcm.h"
+#include "kgabor.h"
 #include "kprogressbar.h"
 #include "kfeaturelbp.h"
 #include "kimagecvt.h" //for image convert
@@ -138,7 +139,10 @@ void KSVMController::createTable(map<QString, int> & lists, QString output)
                 //qDebug()<<"dddd2:"<<tempString;
             }else{
                 if(m_featureType == Feature_Gabor){
-
+                    KGabor *feature = new KGabor(it->first,7);
+                    feature->build();
+                    tempString=feature->getSVMString();
+                    delete feature;
                 }else{
                     if(m_featureType == Feature_GLCM){
                         KGLCM *feature = new KGLCM(it->first,32,32);
