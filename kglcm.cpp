@@ -9,10 +9,13 @@
 #include <QDir>
 
 #include <cmath>
+#include <iostream>
+#include <fstream>
 
-KGLCM::KGLCM(QString input,int distance,int grayLevel)
+KGLCM::KGLCM(QString input,int distance,int grayLevel,bool beRecorder)
      :m_iDistance(distance),
-      m_iGrayLevel(grayLevel)
+      m_iGrayLevel(grayLevel),
+      m_beRecorder(beRecorder)
 {
     QRegularExpression re("[\\\\/]");
 
@@ -72,8 +75,35 @@ void KGLCM::build()
 
     m_fArrGLCM = (float *) CPLMalloc(sizeof(float)*m_iGrayLevel*m_iGrayLevel);
 
+    QString tempOut = m_sOutputRoot+"temp";
+    QDir tempDir(tempOut);
+    if(!tempDir.exists()) tempDir.mkpath(tempOut);
+    tempOut+=QDir::separator();
+
     for(int index=G_Start;index<G_End;++index){
+        QString glcmRecorder(tempOut+m_sFileNoExtName+QString("_recorder_dir_%1pi.txt").arg(index*2./(G_End-1), 0, 'f', 1));
         calcGLCM(K_GLCM_Degree(index),&progressBar);
+
+//        std::fstream fsRecorder(glcmRecorder.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
+
+//        for(int index=0;index<m_iGrayLevel*m_iGrayLevel;++index){
+//            QString tempString("");
+        //tempString = QString("%1\t%2\t%3\n").arg(m_iArrGLCM[index]);
+//            tempString = QString("%1\n").arg(m_iArrGLCM[index]);
+//            fsRecorder<<tempString.toStdString();
+//        }
+//        fsRecorder.close();
+        std::fstream fsRecorder(glcmRecorder.toUtf8().constData(),std::ios_base::out|std::ios_base::trunc);
+
+        for(int iY=0;iY<m_iGrayLevel;++iY){
+            for(int iX=0;iX<m_iGrayLevel;++iX){
+                QString tempString("");
+                tempString = QString("%1\t%2\t%3\n").arg(iY).arg(iX).arg(m_iArrGLCM[iY*m_iGrayLevel+iX]);
+                //tempString = QString("%1\n").arg(m_iArrGLCM[index]);
+                if(m_beRecorder) fsRecorder<<tempString.toStdString();
+            }
+        }
+        fsRecorder.close();
 
         for(int iY=0;iY<m_iGrayLevel;++iY){
             for(int iX=0;iX<m_iGrayLevel;++iX){

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 3.4.2, 2016-05-13T15:24:30. -->
+<!-- Written by QtCreator 3.4.2, 2016-05-19T18:38:04. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -229,7 +229,7 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DefaultDisplayName">GraduationDesignTest</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName"></value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:D:/Qt/QtPrj/GraduationDesignTest/GraduationDesignTest.pro</value>
-    <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments">C:\train C:\test C:\ttt2.txt -t=sgabor</value>
+    <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.CommandLineArguments">D:\tra D:\tttt D:\ttt2.txt -t=sglcm</value>
     <value type="QString" key="Qt4ProjectManager.Qt4RunConfiguration.ProFile">GraduationDesignTest.pro</value>
     <value type="bool" key="Qt4ProjectManager.Qt4RunConfiguration.UseDyldImageSuffix">false</value>
     <value type="bool" key="Qt4ProjectManager.Qt4RunConfiguration.UseTerminal">true</value>

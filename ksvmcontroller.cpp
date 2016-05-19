@@ -145,10 +145,15 @@ void KSVMController::createTable(map<QString, int> & lists, QString output)
                     delete feature;
                 }else{
                     if(m_featureType == Feature_GLCM){
-                        KGLCM *feature = new KGLCM(it->first,32,32);
-                        feature->build();
-                        tempString=feature->getSVMString();
-                        delete feature;
+                        KGLCM *feature0816 = new KGLCM(it->first,8,16);
+                        feature0816->build();
+                        tempString=feature0816->getSVMString();
+                        KGLCM *feature1616 = new KGLCM(it->first,16,16);
+                        feature1616->build();
+                        tempString+=feature1616->getSVMString(26);
+                        //qDebug()<<tempString;
+                        delete feature1616;
+                        delete feature0816;
                     }else{
                         qDebug()<<"unknown feature...";
                         exit(1);

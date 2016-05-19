@@ -22,7 +22,7 @@ class KGLCM
         G_End = 5,
     } K_GLCM_Degree;
 public:
-    KGLCM(QString,int=8,int=16);
+    KGLCM(QString,int=8,int=16,bool=false);
     ~KGLCM();
     void build();
     QString getSVMString(int=1);
@@ -38,6 +38,7 @@ private:
     int m_extImageWidth;
     const int m_iDistance;
     const int m_iGrayLevel;
+    bool m_beRecorder;
     std::vector<float> m_vecParam;
     void calcGLCM(K_GLCM_Degree, KProgressBar* =NULL);
     std::tuple<int,int> getGrayByDir(std::tuple<int,int>, K_GLCM_Degree);
